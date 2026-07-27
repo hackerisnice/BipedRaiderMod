@@ -32,28 +32,25 @@ public class CustomBipedEntity extends PathfinderMob {
     }
 
     @Override
-    protected void registerGoals() {
-        // 基础移动目标
-        this.goalSelector.addGoal(0, new FloatGoal(this));
+protected void registerGoals() {
+    this.goalSelector.addGoal(0, new FloatGoal(this));
 
-        // ---------- 四大自定义战术 Goal ----------
-        // 优先级数值越低越先执行；这里合理安排互不冲突的优先级
-        this.goalSelector.addGoal(1, new EscapeBoatAndBuildUpGoal(this, 1.2D));
-        this.goalSelector.addGoal(2, new ThrowHarmingPotionAtFeetGoal(this));
-        this.goalSelector.addGoal(3, new EnderPearlTeleportGoal(this));
-        this.goalSelector.addGoal(4, new BreakBlockToReachTargetGoal(this));
-        // -----------------------------------------
+    // ---------- 四大自定义战术 Goal ----------
+    this.goalSelector.addGoal(1, new EscapeBoatAndBuildUpGoal(this, 1.2D));
+    this.goalSelector.addGoal(2, new ThrowHarmingPotionAtFeetGoal(this));
+    this.goalSelector.addGoal(3, new EnderPearlTeleportGoal(this));
+    // ★ 新增：举盾破盾 Goal（优先级高于破墙和普通近战）
+    this.goalSelector.addGoal(5, new AxeBreakShieldGoal(this));
+    this.goalSelector.addGoal(4, new BreakBlockToReachTargetGoal(this));
+    // -----------------------------------------
 
-        // 近战攻击作为兜底
-        this.goalSelector.addGoal(5, new MeleeAttackGoal(this, 1.0D, true));
-        // 随机移动与看向
-        this.goalSelector.addGoal(6, new RandomStrollGoal(this, 0.8D));
-        this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(8, new RandomLookAroundGoal(this));
+    this.goalSelector.addGoal(6, new MeleeAttackGoal(this, 1.0D, true));
+    this.goalSelector.addGoal(7, new RandomStrollGoal(this, 0.8D));
+    this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
+    this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
 
-        // 自动锁定玩家为目标
-        this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, true));
-    }
+    this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, true));
+}
 
     // ========== 主手物品保存与还原机制 ==========
 
