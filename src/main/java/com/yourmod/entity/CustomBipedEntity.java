@@ -42,6 +42,8 @@ protected void registerGoals() {
     // ★ 新增：举盾破盾 Goal（优先级高于破墙和普通近战）
     this.goalSelector.addGoal(5, new AxeBreakShieldGoal(this));
     this.goalSelector.addGoal(4, new BreakBlockToReachTargetGoal(this));
+    this.goalSelector.addGoal(4, new EatEnchantedGoldenAppleGoal(this));// 血量危急时进食
+
     // -----------------------------------------
 
     this.goalSelector.addGoal(6, new MeleeAttackGoal(this, 1.0D, true));
