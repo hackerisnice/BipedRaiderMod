@@ -90,16 +90,20 @@ protected void registerGoals() {
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
-        if (savedMainHandItem != null && !savedMainHandItem.isEmpty()) {
-            tag.put("SavedMainHandItem", savedMainHandItem.save(new CompoundTag()));
+        HolderLookup.Provider provider = this.level().registryAccess();
+        if (this.savedMainHandItem != null && !this.savedMainHandItem.isEmpty()) {
+            tag.put("SavedMainHandItem", this.savedMainHandItem.saveOptional(provider));
         }
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
+        HolderLookup.Provider provider = this.level().registryAccess();
         if (tag.contains("SavedMainHandItem")) {
-            savedMainHandItem = ItemStack.of(tag.getCompound("SavedMainHandItem"));
+            this.savedMainHandItem = ItemStack.parseOptional(provider, tag.getCompound("SavedMainHandItem"));
+        } else {
+            this.savedMainHandItem = ItemStack.EMPTY;
         }
     }
 }
