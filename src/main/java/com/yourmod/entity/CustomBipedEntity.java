@@ -36,24 +36,32 @@ public class CustomBipedEntity extends PathfinderMob {
 protected void registerGoals() {
     this.goalSelector.addGoal(0, new FloatGoal(this));
 
-    // ---------- 四大自定义战术 Goal ----------
-    this.goalSelector.addGoal(1, new EscapeBoatAndBuildUpGoal(this, 1.2D));
-    this.goalSelector.addGoal(2, new ThrowHarmingPotionAtFeetGoal(this));
-    this.goalSelector.addGoal(3, new EnderPearlTeleportGoal(this));
-    // ★ 新增：举盾破盾 Goal（优先级高于破墙和普通近战）
-    this.goalSelector.addGoal(5, new AxeBreakShieldGoal(this));
-    this.goalSelector.addGoal(4, new BreakBlockToReachTargetGoal(this));
-    this.goalSelector.addGoal(4, new EatEnchantedGoldenAppleGoal(this));// 血量危急时进食
+    // 1. 绝对保命：血量低立刻吃苹果
+    this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
+    
+    // 2. 强力脱困/战术机动
+    this.goalSelector.addGoal(2, new EscapeBoatAndBuildUpGoal(this, 1.2D));
+    
+    // 3. 极近距离的反击战术
+    this.goalSelector.addGoal(3, new AxeBreakShieldGoal(this));
+    this.goalSelector.addGoal(4, new ThrowHarmingPotionAtFeetGoal(this));
+    
+    // 4. 寻路与障碍清理
+    this.goalSelector.addGoal(5, new BreakBlockToReachTargetGoal(this));
+    
+    // 5. 远程追击 (距离 > 16 时触发)
+    this.goalSelector.addGoal(6, new EnderPearlTeleportGoal(this));
 
-    // -----------------------------------------
+    // 6. 基础行为
+    this.goalSelector.addGoal(7, new MeleeAttackGoal(this, 1.0D, true));
+    this.goalSelector.addGoal(8, new RandomStrollGoal(this, 0.8D));
+    this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F));
+    this.goalSelector.addGoal(10, new RandomLookAroundGoal(this));
 
-    this.goalSelector.addGoal(6, new MeleeAttackGoal(this, 1.0D, true));
-    this.goalSelector.addGoal(7, new RandomStrollGoal(this, 0.8D));
-    this.goalSelector.addGoal(8, new LookAtPlayerGoal(this, Player.class, 8.0F));
-    this.goalSelector.addGoal(9, new RandomLookAroundGoal(this));
-
-    this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, true));
+    // 注意这里改为 false
+    this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, false)); 
 }
+
 
     // ========== 主手物品保存与还原机制 ==========
 
