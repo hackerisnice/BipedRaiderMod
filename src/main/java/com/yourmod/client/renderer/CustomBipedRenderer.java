@@ -11,9 +11,6 @@ import net.minecraft.resources.ResourceLocation;
 
 public class CustomBipedRenderer extends HumanoidMobRenderer<CustomBipedEntity, HumanoidModel<CustomBipedEntity>> {
 
-    private static final ResourceLocation TEXTURE =
-            new ResourceLocation(BipedRaiderMod.MODID, "textures/entity/custom_biped.png");
-
     public CustomBipedRenderer(EntityRendererProvider.Context ctx) {
         super(ctx, new HumanoidModel<>(ctx.bakeLayer(ModelLayers.PLAYER)), 0.5F);
         // 可添加盔甲层，但皮肤为空白，通常省略
@@ -25,6 +22,6 @@ public class CustomBipedRenderer extends HumanoidMobRenderer<CustomBipedEntity, 
 
     @Override
     public ResourceLocation getTextureLocation(CustomBipedEntity entity) {
-        return TEXTURE; // 指向 assets/yourmod/textures/entity/custom_biped.png 空白皮肤
+        return ResourceLocation.fromNamespaceAndPath(BipedRaiderMod.MODID, "textures/entity/custom_biped.png");
     }
 }
