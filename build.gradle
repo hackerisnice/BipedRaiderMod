@@ -19,10 +19,7 @@ archivesBaseName = 'bipedraidermod'
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 minecraft {
-    // 使用最新的 1.21 Mappings
     mappings channel: 'official', version: '1.21'
-    // 若使用 Parchment 映射，可改为：
-    // mappings channel: 'parchment', version: '2024.06.16-1.21'
 
     runs {
         client {
@@ -62,16 +59,13 @@ minecraft {
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
-    // 如果你需要额外依赖，可以放在这里
+    // 额外依赖仓库（若有需要）
 }
 
 dependencies {
     minecraft 'net.minecraftforge:forge:1.21-51.0.33'
-    // 如需使用其他模组作为可选依赖：
-    // implementation fg.deobf("some.mod:example:1.21-1.0.0")
 }
 
-// 处理资源的替换变量
 tasks.named('processResources', ProcessResources).configure {
     var replaceProperties = [
             minecraft_version: '1.21',
@@ -87,18 +81,18 @@ tasks.named('processResources', ProcessResources).configure {
     }
 }
 
+// ★ 注意：移除了 finalizedBy 'reobfJar'，因为 ForgeGradle 6 已自动处理
 jar {
     manifest {
         attributes([
                 "Specification-Title": "bipedraidermod",
-                "Specification-Vendor": "YourName",
+                "Specification-Vendor": "PANDA",
                 "Specification-Version": "1",
                 "Implementation-Title": project.name,
                 "Implementation-Version": project.version,
                 "Implementation-Vendor": "YourName"
         ])
     }
-    finalizedBy 'reobfJar'
 }
 
 publishing {
