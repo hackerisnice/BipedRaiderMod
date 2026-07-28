@@ -41,26 +41,26 @@ public class ThrowHarmingPotionAtFeetGoal extends Goal {
             cooldown--;
             return false;
         }
+        
         LivingEntity target = mob.getTarget();
         if (!(target instanceof Player player) || !target.isAlive()) return false;
-        if (mob.distanceToSqr(target) > 8.0 * 8.0) return false; // 距离 <= 8 格
+        
+        // 距离判定：必须在 8 格以内
+        if (mob.distanceToSqr(target) > 8.0 * 8.0) return false;
 
-        // 龟缩判定：玩家头顶1~2格为固体方块，且脚部周围有空气
-        BlockPos headPos = target.blockPosition().above();
-        BlockPos aboveHeadPos = headPos.above();
-        boolean headBlocked = level.getBlockState(headPos).blocksMotion() ||
-                              level.getBlockState(aboveHeadPos).blocksMotion();
-
-        if (!headBlocked) return false;
-        // 脚底附近必须存在空气或非固体（保证药水能落入）
+        // 放宽条件：不再检查头顶方块。
+        // 如果玩家正在举盾，或者单纯只是一直在这个距离内，都可以触发投掷。
+        
+        // 确保玩家脚底不是被完全封死的方块（防止药水砸不进去）
         BlockPos feetPos = target.blockPosition();
         if (level.getBlockState(feetPos).blocksMotion() &&
             level.getBlockState(feetPos.above()).blocksMotion()) {
-            // 脚底完全被堵塞，无法投掷
             return false;
         }
+        
         return true;
     }
+
 
     @Override
     public void start() {
