@@ -51,14 +51,21 @@ public class EnderPearlTeleportGoal extends Goal {
         shootCount = 0;
         tickDelay = 0;
         // 准备弩
+        var registryAccess = this.mob.level().registryAccess(); // 如果在此Goal中能拿到mob/实体
+        var enchantmentRegistry = registryAccess.registryOrThrow(Registries.ENCHANTMENT);
+    
+        // 获取对应的 Holder<Enchantment>
+        Holder<Enchantment> quickCharge = enchantmentRegistry.getHolderOrThrow(Enchantments.QUICK_CHARGE);
+        Holder<Enchantment> power = enchantmentRegistry.getHolderOrThrow(Enchantments.POWER);
+        Holder<Enchantment> multishot = enchantmentRegistry.getHolderOrThrow(Enchantments.MULTISHOT);
         ItemStack crossbow = new ItemStack(Items.CROSSBOW);
         // 附魔：快速装填 V, 力量 V (虽对弩无效但模拟)，多重射击
-        crossbow.enchant(Enchantments.QUICK_CHARGE, 5);
-        crossbow.enchant(Enchantments.POWER, 5);     // 仅用于表示
-        crossbow.enchant(Enchantments.MULTISHOT, 1);
+        crossbow.enchant(quickCharge, 5);
+        crossbow.enchant(power, 5);     // 仅用于表示
+        crossbow.enchant(multishot, 1);
         // 装填弩（用箭）
         ItemStack arrowStack = new ItemStack(Items.ARROW);
-        crossbow.set(DataComponents.CHARGED_PROJECTILES, java.util.List.of(arrowStack));
+        crossbow.set(DataComponents.CHARGED_PROJECTILES, ChargedProjectiles.of(arrowStack));
         mob.switchMainHandItem(crossbow);
     }
 
