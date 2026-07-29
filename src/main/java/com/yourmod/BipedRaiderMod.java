@@ -19,6 +19,8 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
+import net.minecraft.world.entity.SpawnPlacementTypes;
+
 
 @Mod("bipedraidermod")
 public class BipedRaiderMod {
@@ -62,13 +64,14 @@ public class BipedRaiderMod {
                 .build());
     }
 
-    // 新增：配置实体生成环境（地面、不包含树叶、原版怪物亮度规则）
+        // 确保顶部已经 import net.minecraft.world.entity.SpawnPlacementTypes;
+
     private void registerSpawnPlacements(SpawnPlacementRegisterEvent event) {
         event.register(
                 CUSTOM_BIPED.get(),
-                SpawnPlacements.Type.ON_GROUND,
+                SpawnPlacementTypes.ON_GROUND, // <--- 修改了这里
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                net.minecraft.world.entity.Mob::checkMobSpawnRules,
+                Monster::checkMonsterSpawnRules, // 如果你想白天也生成，这里可以换成刚才说的 Mob::checkMobSpawnRules
                 SpawnPlacementRegisterEvent.Operation.OR
         );
     }
