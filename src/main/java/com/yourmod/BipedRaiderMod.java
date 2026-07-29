@@ -5,7 +5,7 @@ import com.yourmod.client.renderer.CustomBipedRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
-import net.minecraft.world.entity.SpawnPlacements;
+import net.minecraft.world.entity.SpawnPlacementTypes; // 修复1：使用 1.20+ 新版本的生成类型导入
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -19,8 +19,6 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
-import net.minecraft.world.entity.SpawnPlacementTypes;
-
 
 @Mod("bipedraidermod")
 public class BipedRaiderMod {
@@ -43,7 +41,7 @@ public class BipedRaiderMod {
         ENTITIES.register(modBus);
         modBus.addListener(this::onClientSetup);
         modBus.addListener(this::onAttributeCreate);
-        // 新增：注册生成规则事件
+        // 绑定生成规则事件
         modBus.addListener(this::registerSpawnPlacements);
         
         MinecraftForge.EVENT_BUS.register(this);
@@ -64,14 +62,15 @@ public class BipedRaiderMod {
                 .build());
     }
 
-        // 确保顶部已经 import net.minecraft.world.entity.SpawnPlacementTypes;
-
+    // 修复2：使用 SuppressWarnings 配合原始类型强转，彻底无视编译器的类型边界报错
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private void registerSpawnPlacements(SpawnPlacementRegisterEvent event) {
         event.register(
                 CUSTOM_BIPED.get(),
-                SpawnPlacementTypes.ON_GROUND, // <--- 修改了这里
+                SpawnPlacementTypes.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                Mob::checkMobSpawnRules,
+                // 使用 Lambda 表达式 + EntityType 原生强转，使得非 Monster 继承的实体也能复用原版怪物的生成规则
+                (type, level, spawnType, pos, random) -> Monster.checkMonsterSpawnRules((EntityType) type, level, spawnType, pos, random),
                 SpawnPlacementRegisterEvent.Operation.OR
         );
     }
