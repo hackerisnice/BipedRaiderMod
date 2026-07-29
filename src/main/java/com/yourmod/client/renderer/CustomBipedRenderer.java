@@ -13,7 +13,6 @@ public class CustomBipedRenderer extends HumanoidMobRenderer<CustomBipedEntity, 
 
     public CustomBipedRenderer(EntityRendererProvider.Context ctx) {
         super(ctx, new HumanoidModel<>(ctx.bakeLayer(ModelLayers.PLAYER)), 0.5F);
-        // 可添加盔甲层，但皮肤为空白，通常省略
         this.addLayer(new HumanoidArmorLayer<>(this,
                 new HumanoidModel<>(ctx.bakeLayer(ModelLayers.PLAYER_INNER_ARMOR)),
                 new HumanoidModel<>(ctx.bakeLayer(ModelLayers.PLAYER_OUTER_ARMOR)),
@@ -22,6 +21,8 @@ public class CustomBipedRenderer extends HumanoidMobRenderer<CustomBipedEntity, 
 
     @Override
     public ResourceLocation getTextureLocation(CustomBipedEntity entity) {
-        return ResourceLocation.fromNamespaceAndPath(BipedRaiderMod.MODID, "textures/entity/custom_biped.png");
+        // 直接硬编码 bipedraidermod，确保路径绝对读取为：
+        // assets/bipedraidermod/textures/entity/custom_biped.png
+        return ResourceLocation.fromNamespaceAndPath("bipedraidermod", "textures/entity/custom_biped.png");
     }
 }
