@@ -1,85 +1,61 @@
 package com.yourmod.entity;
 
 import com.yourmod.entity.ai.*;
-import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.syncher.EntityDataAccessor;
-import net.minecraft.network.syncher.EntityDataSerializers;
-import net.minecraft.network.syncher.SynchedEntityData;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.entity.*;
-import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.HolderLookup;
 
-public class CustomBipedEntity extends PathfinderMob {
+// 必须继承 Monster
+public class CustomBipedEntity extends Monster {
 
-    // 用于保存被 Goal 临时替换前的原始主手物品
     @Nullable
     private ItemStack savedMainHandItem = null;
 
-    public CustomBipedEntity(EntityType<? extends PathfinderMob> type, Level level) {
+    public CustomBipedEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
     }
 
     @Override
-protected void registerGoals() {
-    this.goalSelector.addGoal(0, new FloatGoal(this));
+    protected void registerGoals() {
+        this.goalSelector.addGoal(0, new FloatGoal(this));
 
-    // 1. 绝对保命：血量低立刻吃苹果
-    this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
-    
-    // 2. 强力脱困/战术机动
-    this.goalSelector.addGoal(2, new EscapeBoatAndBuildUpGoal(this, 1.2D));
-    
-    // 3. 极近距离的反击战术
-    this.goalSelector.addGoal(3, new AxeBreakShieldGoal(this));
-    this.goalSelector.addGoal(4, new ThrowHarmingPotionAtFeetGoal(this));
-    
-    // 4. 寻路与障碍清理
-    this.goalSelector.addGoal(5, new BreakBlockToReachTargetGoal(this));
-    
-    // 5. 远程追击 (距离 > 16 时触发)
-    this.goalSelector.addGoal(6, new EnderPearlTeleportGoal(this));
+        // 1. 保命优先
+        this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
+        // 2. 暴走反击 (连击3次触发跑酷重锤)
+        this.goalSelector.addGoal(2, new EscapeBoatAndBuildUpGoal(this, 1.2D));
+        // 3. 极近距离战术
+        this.goalSelector.addGoal(3, new AxeBreakShieldGoal(this));
+        this.goalSelector.addGoal(4, new ThrowHarmingPotionAtFeetGoal(this));
+        // 4. 寻路与障碍清理
+        this.goalSelector.addGoal(5, new BreakBlockToReachTargetGoal(this));
+        // 5. 远程追击
+        this.goalSelector.addGoal(6, new EnderPearlTeleportGoal(this));
 
-    // 6. 基础行为
-    this.goalSelector.addGoal(7, new MeleeAttackGoal(this, 1.0D, true));
-    this.goalSelector.addGoal(8, new RandomStrollGoal(this, 0.8D));
-    this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F));
-    this.goalSelector.addGoal(10, new RandomLookAroundGoal(this));
+        // 6. 基础移动与攻击 (1.5倍速疾跑追击，0.6倍速慢走巡逻)
+        this.goalSelector.addGoal(7, new MeleeAttackGoal(this, 1.5D, true));
+        this.goalSelector.addGoal(8, new RandomStrollGoal(this, 0.6D));
+        this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(10, new RandomLookAroundGoal(this));
 
-    // 注意这里改为 false
-    this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, false)); 
-}
+        // 目标选择器：false代表无视墙壁透视索敌
+        this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, false));
+    }
 
-
-    // ========== 主手物品保存与还原机制 ==========
-
-    /**
-     * 将当前主手物品保存到 savedMainHandItem，并将主手替换为 newItem。
-     * 若已保存过，则不会覆盖原保存物品（确保原始物品永不丢失）。
-     */
     public void switchMainHandItem(ItemStack newItem) {
         if (savedMainHandItem == null) {
-            savedMainHandItem = this.getMainHandItem().copy(); // 深拷贝
+            savedMainHandItem = this.getMainHandItem().copy();
         }
         this.setItemInHand(InteractionHand.MAIN_HAND, newItem);
     }
 
-    /**
-     * 还原主手物品为被替换前的原始物品，并清除保存记录。
-     * 调用后 savedMainHandItem 置为 null。
-     */
     public void restoreMainHandItem() {
         if (savedMainHandItem != null) {
             this.setItemInHand(InteractionHand.MAIN_HAND, savedMainHandItem.copy());
@@ -87,14 +63,9 @@ protected void registerGoals() {
         }
     }
 
-    /**
-     * 检查当前是否已经保存了原始主手物品（说明正处于 Goal 替换状态）
-     */
     public boolean isMainHandSaved() {
         return savedMainHandItem != null;
     }
-
-    // ========== 生命周期 ==========
 
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
