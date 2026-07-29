@@ -5,11 +5,13 @@ import com.yourmod.client.renderer.CustomBipedRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
-import net.minecraft.world.item.Item;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
+import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
@@ -39,6 +41,9 @@ public class BipedRaiderMod {
         ENTITIES.register(modBus);
         modBus.addListener(this::onClientSetup);
         modBus.addListener(this::onAttributeCreate);
+        // 新增：注册生成规则事件
+        modBus.addListener(this::registerSpawnPlacements);
+        
         MinecraftForge.EVENT_BUS.register(this);
     }
 
@@ -55,5 +60,16 @@ public class BipedRaiderMod {
                 .add(Attributes.FOLLOW_RANGE, 64.0D)
                 .add(Attributes.ARMOR, 2.0D)
                 .build());
+    }
+
+    // 新增：配置实体生成环境（地面、不包含树叶、原版怪物亮度规则）
+    private void registerSpawnPlacements(SpawnPlacementRegisterEvent event) {
+        event.register(
+                CUSTOM_BIPED.get(),
+                SpawnPlacements.Type.ON_GROUND,
+                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
+                Monster::checkMonsterSpawnRules,
+                SpawnPlacementRegisterEvent.Operation.OR
+        );
     }
 }
