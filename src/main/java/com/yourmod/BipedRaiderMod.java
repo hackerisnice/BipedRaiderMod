@@ -68,7 +68,7 @@ public class BipedRaiderMod {
                 CUSTOM_BIPED.get(),
                 SpawnPlacements.Type.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                Monster::checkMonsterSpawnRules,
+                net.minecraft.world.entity.Mob::checkMobSpawnRules,
                 SpawnPlacementRegisterEvent.Operation.OR
         );
     }
