@@ -71,7 +71,7 @@ public class BipedRaiderMod {
                 CUSTOM_BIPED.get(),
                 SpawnPlacementTypes.ON_GROUND, // <--- 修改了这里
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                Monster::checkMonsterSpawnRules, // 如果你想白天也生成，这里可以换成刚才说的 Mob::checkMobSpawnRules
+                Mob::checkMobSpawnRules,
                 SpawnPlacementRegisterEvent.Operation.OR
         );
     }
