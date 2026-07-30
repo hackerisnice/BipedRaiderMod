@@ -1,6 +1,7 @@
 package com.yourmod;
 
 import com.yourmod.entity.CustomBipedEntity;
+import com.yourmod.entity.FriendlyBipedEntity;
 import com.yourmod.client.renderer.CustomBipedRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.world.entity.EntityType;
@@ -28,12 +29,21 @@ public class BipedRaiderMod {
     public static final DeferredRegister<EntityType<?>> ENTITIES =
             DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
 
+    // 敌对实体
     public static final RegistryObject<EntityType<CustomBipedEntity>> CUSTOM_BIPED =
             ENTITIES.register("custom_biped", () -> EntityType.Builder
                     .of(CustomBipedEntity::new, MobCategory.MONSTER)
                     .sized(0.6F, 1.8F)
                     .clientTrackingRange(64)
                     .build("custom_biped"));
+
+    // ★ 新增：善良守护实体 (属于 CREATURE 动物分类，防止被刷怪限制)
+    public static final RegistryObject<EntityType<FriendlyBipedEntity>> FRIENDLY_BIPED =
+            ENTITIES.register("friendly_biped", () -> EntityType.Builder
+                    .of(FriendlyBipedEntity::new, MobCategory.CREATURE)
+                    .sized(0.6F, 1.8F)
+                    .clientTrackingRange(64)
+                    .build("friendly_biped"));
 
     public BipedRaiderMod() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -46,6 +56,8 @@ public class BipedRaiderMod {
 
     private void onClientSetup(FMLClientSetupEvent event) {
         EntityRenderers.register(CUSTOM_BIPED.get(), CustomBipedRenderer::new);
+        // 复用同一个皮肤渲染器
+        EntityRenderers.register(FRIENDLY_BIPED.get(), CustomBipedRenderer::new); 
     }
 
     private void onAttributeCreate(EntityAttributeCreationEvent event) {
@@ -56,6 +68,15 @@ public class BipedRaiderMod {
                 .add(Attributes.FOLLOW_RANGE, 64.0D)
                 .add(Attributes.ARMOR, 2.0D)
                 .build());
+                
+        // ★ 善良实体的属性（移动速度更快，方便跟上玩家）
+        event.put(FRIENDLY_BIPED.get(), FriendlyBipedEntity.createAttributes()
+                .add(Attributes.MAX_HEALTH, 80.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.35D) 
+                .add(Attributes.ATTACK_DAMAGE, 6.0D)
+                .add(Attributes.FOLLOW_RANGE, 64.0D)
+                .add(Attributes.ARMOR, 4.0D)
+                .build());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -64,7 +85,6 @@ public class BipedRaiderMod {
                 CUSTOM_BIPED.get(),
                 SpawnPlacementTypes.ON_GROUND,
                 Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                // Lambda + 强转，彻底绕开泛型报错
                 (type, level, spawnType, pos, random) -> Monster.checkMonsterSpawnRules((EntityType) type, level, spawnType, pos, random),
                 SpawnPlacementRegisterEvent.Operation.OR
         );
