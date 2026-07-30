@@ -3,8 +3,10 @@ package com.yourmod.entity;
 import com.yourmod.entity.ai.CompanionCombatGoal;
 import com.yourmod.entity.ai.CompanionFollowPearlGoal;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.AgeableMob;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.ai.goal.*;
@@ -32,7 +34,14 @@ public class FriendlyBipedEntity extends TamableAnimal {
         super(type, level);
     }
 
-    // 修复报错1：实现 TamableAnimal 必需的 isFood 抽象方法
+    // ★ 修复报错：实现 AgeableMob 必需的繁育后代方法
+    @Nullable
+    @Override
+    public AgeableMob getBreedOffspring(ServerLevel level, AgeableMob otherParent) {
+        return null; // 保镖不需要像动物一样繁殖，直接返回 null
+    }
+
+    // 实现 TamableAnimal 必需的 isFood 抽象方法
     @Override
     public boolean isFood(ItemStack stack) {
         return false;
@@ -44,7 +53,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
         this.goalSelector.addGoal(1, new CompanionFollowPearlGoal(this));
         this.goalSelector.addGoal(2, new CompanionCombatGoal(this, 1.5D));
         
-        // 修复报错2：去掉了 1.21 版本中已被废弃的 boolean false 参数
         this.goalSelector.addGoal(3, new FollowOwnerGoal(this, 1.2D, 10.0F, 2.0F));
         
         this.goalSelector.addGoal(4, new WaterAvoidingRandomStrollGoal(this, 1.0D));
