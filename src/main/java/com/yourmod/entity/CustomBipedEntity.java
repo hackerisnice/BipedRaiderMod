@@ -1,19 +1,27 @@
 package com.yourmod.entity;
 
+import com.yourmod.BipedRaiderMod;
 import com.yourmod.entity.ai.*;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.goal.*;
+import net.minecraft.world.entity.ai.goal.target.HurtByTargetGoal;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.DifficultyInstance;
 import org.jetbrains.annotations.Nullable;
 import net.minecraft.core.HolderLookup;
 
-// 必须继承 Monster
 public class CustomBipedEntity extends Monster {
 
     @Nullable
@@ -23,30 +31,50 @@ public class CustomBipedEntity extends Monster {
         super(type, level);
     }
 
+    // ★ 新增：初始化生成时，强制在主手塞入钻石剑
+    @Override
+    public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason, @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
+        this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
+        return super.finalizeSpawn(level, difficulty, reason, spawnData, dataTag);
+    }
+
+    // ★ 新增：死亡时触发事件，召唤友军实体
+    @Override
+    public void die(DamageSource cause) {
+        if (!this.level().isClientSide) {
+            // 找到最近的玩家（通常是杀死它的玩家）
+            Player nearestPlayer = this.level().getNearestPlayer(this, 16.0D);
+            FriendlyBipedEntity friendly = BipedRaiderMod.FRIENDLY_BIPED.get().create(this.level());
+            
+            if (friendly != null && nearestPlayer != null) {
+                // 在死亡的当前位置生成
+                friendly.moveTo(this.getX(), this.getY(), this.getZ(), this.getYRot(), this.getXRot());
+                // 认玩家为主，从此跟随并保护
+                friendly.tame(nearestPlayer);
+                this.level().addFreshEntity(friendly);
+            }
+        }
+        super.die(cause);
+    }
+
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-
-        // 1. 保命优先
         this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
-        // 2. 暴走反击 (连击3次触发跑酷重锤)
         this.goalSelector.addGoal(2, new EscapeBoatAndBuildUpGoal(this, 1.2D));
-        // 3. 极近距离战术
         this.goalSelector.addGoal(3, new AxeBreakShieldGoal(this));
         this.goalSelector.addGoal(4, new ThrowHarmingPotionAtFeetGoal(this));
-        // 4. 寻路与障碍清理
         this.goalSelector.addGoal(5, new BreakBlockToReachTargetGoal(this));
-        // 5. 远程追击
         this.goalSelector.addGoal(6, new EnderPearlTeleportGoal(this));
-
-        // 6. 基础移动与攻击 (1.5倍速疾跑追击，0.6倍速慢走巡逻)
         this.goalSelector.addGoal(7, new MeleeAttackGoal(this, 1.5D, true));
         this.goalSelector.addGoal(8, new RandomStrollGoal(this, 0.6D));
         this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(10, new RandomLookAroundGoal(this));
 
-        // 目标选择器：false代表无视墙壁透视索敌
-        this.targetSelector.addGoal(1, new NearestAttackableTargetGoal<>(this, Player.class, false));
+        // ★ 新增：受击反击优先级为 1。被打时会立刻回头反击，打死对方后自动切回目标
+        this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
+        // 原有玩家仇恨优先级降为 2
+        this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
     }
 
     public void switchMainHandItem(ItemStack newItem) {
