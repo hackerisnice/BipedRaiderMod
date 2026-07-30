@@ -3,6 +3,7 @@ package com.yourmod;
 import com.yourmod.entity.CustomBipedEntity;
 import com.yourmod.entity.FriendlyBipedEntity;
 import com.yourmod.client.renderer.CustomBipedRenderer;
+import com.yourmod.client.renderer.FriendlyBipedRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderers;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -29,7 +30,6 @@ public class BipedRaiderMod {
     public static final DeferredRegister<EntityType<?>> ENTITIES =
             DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
 
-    // 敌对实体
     public static final RegistryObject<EntityType<CustomBipedEntity>> CUSTOM_BIPED =
             ENTITIES.register("custom_biped", () -> EntityType.Builder
                     .of(CustomBipedEntity::new, MobCategory.MONSTER)
@@ -37,7 +37,6 @@ public class BipedRaiderMod {
                     .clientTrackingRange(64)
                     .build("custom_biped"));
 
-    // ★ 新增：善良守护实体 (属于 CREATURE 动物分类，防止被刷怪限制)
     public static final RegistryObject<EntityType<FriendlyBipedEntity>> FRIENDLY_BIPED =
             ENTITIES.register("friendly_biped", () -> EntityType.Builder
                     .of(FriendlyBipedEntity::new, MobCategory.CREATURE)
@@ -56,8 +55,8 @@ public class BipedRaiderMod {
 
     private void onClientSetup(FMLClientSetupEvent event) {
         EntityRenderers.register(CUSTOM_BIPED.get(), CustomBipedRenderer::new);
-        // 复用同一个皮肤渲染器
-        EntityRenderers.register(FRIENDLY_BIPED.get(), CustomBipedRenderer::new); 
+        // 修复：使用专属的保镖渲染器
+        EntityRenderers.register(FRIENDLY_BIPED.get(), FriendlyBipedRenderer::new); 
     }
 
     private void onAttributeCreate(EntityAttributeCreationEvent event) {
@@ -69,8 +68,8 @@ public class BipedRaiderMod {
                 .add(Attributes.ARMOR, 2.0D)
                 .build());
                 
-        // ★ 善良实体的属性（移动速度更快，方便跟上玩家）
-        event.put(FRIENDLY_BIPED.get(), FriendlyBipedEntity.createAttributes()
+        // 修复：直接使用 Monster 基础属性，修正了找不到 createAttributes 方法的报错
+        event.put(FRIENDLY_BIPED.get(), Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 80.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.35D) 
                 .add(Attributes.ATTACK_DAMAGE, 6.0D)
