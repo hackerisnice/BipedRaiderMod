@@ -31,12 +31,13 @@ public class CustomBipedEntity extends Monster {
         super(type, level);
     }
 
-    // ★ 新增：初始化生成时，强制在主手塞入钻石剑
     @Override
-    public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason, @Nullable SpawnGroupData spawnData, @Nullable CompoundTag dataTag) {
-        this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
-        return super.finalizeSpawn(level, difficulty, reason, spawnData, dataTag);
+    public net.minecraft.world.entity.SpawnGroupData finalizeSpawn(net.minecraft.world.level.ServerLevelAccessor level, net.minecraft.world.DifficultyInstance difficulty, net.minecraft.world.entity.MobSpawnType reason, @Nullable net.minecraft.world.entity.SpawnGroupData spawnData) {
+        this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
+        // 修复：移除了末尾的 dataTag 参数
+        return super.finalizeSpawn(level, difficulty, reason, spawnData);
     }
+
 
     // ★ 新增：死亡时触发事件，召唤友军实体
     @Override
