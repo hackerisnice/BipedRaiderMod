@@ -65,7 +65,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
         }));
     }
 
-    // ★ 核心修复：重写攻击意愿，绝对禁止攻击同类和玩家
     @Override
     public boolean wantsToAttack(LivingEntity target, LivingEntity owner) {
         if (target instanceof FriendlyBipedEntity || target instanceof Player) {
@@ -74,7 +73,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
         return super.wantsToAttack(target, owner);
     }
 
-    // ★ 核心修复：彻底免疫来自玩家和其他守护灵的伤害，连击退都不会有
     @Override
     public boolean hurt(DamageSource source, float amount) {
         if (source.getEntity() instanceof Player || source.getEntity() instanceof FriendlyBipedEntity) {
@@ -87,8 +85,18 @@ public class FriendlyBipedEntity extends TamableAnimal {
     public void tick() {
         super.tick();
 
-        if (this.getTarget() == null && this.getOwner() != null) {
-            this.getLookControl().setLookAt(this.getOwner(), 30.0F, 30.0F);
+        LivingEntity owner = this.getOwner();
+
+        // ★ 新增：极限防走丢机制 (距离 > 32 格时瞬间传送)
+        if (owner != null && !this.level().isClientSide && owner.isAlive()) {
+            if (this.level() == owner.level() && this.distanceToSqr(owner) > 1024.0D) {
+                this.teleportTo(owner.getX(), owner.getY(), owner.getZ());
+                this.getNavigation().stop();
+            }
+        }
+
+        if (this.getTarget() == null && owner != null) {
+            this.getLookControl().setLookAt(owner, 30.0F, 30.0F);
         }
 
         if (!this.level().isClientSide) {
