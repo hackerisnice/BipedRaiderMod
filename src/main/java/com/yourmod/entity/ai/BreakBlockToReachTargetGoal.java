@@ -22,8 +22,10 @@ public class BreakBlockToReachTargetGoal extends Goal {
     private final Level level;
     private BlockPos targetBlock = null;
     private int breakProgress = 0;
-    private static final int MAX_PROGRESS = 60;
     private int tickCounter = 0;
+    
+    // ★ 新增：动态计算所需的总挖掘刻度
+    private int maxBreakTicks = 60; 
 
     public BreakBlockToReachTargetGoal(CustomBipedEntity mob) {
         this.mob = mob;
@@ -37,7 +39,6 @@ public class BreakBlockToReachTargetGoal extends Goal {
         if (target == null || !target.isAlive()) return false;
         if (this.mob.getSensing().hasLineOfSight(target)) return false;
 
-        // 瞄准玩家碰撞箱中心点，对付挖三填一
         Vec3 start = this.mob.getEyePosition();
         Vec3 end = target.getBoundingBox().getCenter();
         
@@ -58,6 +59,12 @@ public class BreakBlockToReachTargetGoal extends Goal {
         tickCounter = 0;
         mob.switchMainHandItem(new ItemStack(Items.NETHERITE_PICKAXE));
         mob.getNavigation().moveTo(targetBlock.getX() + 0.5, targetBlock.getY(), targetBlock.getZ() + 0.5, 1.0);
+        
+        // ★ 核心改动：获取方块硬度，赋予下界合金镐的神速
+        BlockState state = level.getBlockState(targetBlock);
+        float hardness = state.getDestroySpeed(level, targetBlock);
+        // 石头硬度 1.5 -> 7 刻(0.35秒)挖开；泥土 0.5 -> 4 刻(0.2秒)挖开。保底 4 刻。
+        maxBreakTicks = Math.max(4, (int) (hardness * 5)); 
     }
 
     @Override
@@ -80,15 +87,17 @@ public class BreakBlockToReachTargetGoal extends Goal {
         breakProgress++;
         tickCounter++;
 
-        if (tickCounter % 5 == 0) {
+        if (tickCounter % 3 == 0) { // 提高挥舞手臂频率
             mob.swing(InteractionHand.MAIN_HAND);
             level.playSound(null, targetBlock, state.getSoundType().getHitSound(), SoundSource.BLOCKS, 1.0F, 1.0F);
         }
 
-        int crackStage = (int) ((breakProgress / (float) MAX_PROGRESS) * 10);
+        // 动态计算裂纹
+        int crackStage = (int) ((breakProgress / (float) maxBreakTicks) * 10);
         level.destroyBlockProgress(mob.getId(), targetBlock, Math.min(crackStage, 10));
 
-        if (breakProgress >= MAX_PROGRESS) {
+        // 极速挖开
+        if (breakProgress >= maxBreakTicks) {
             level.destroyBlock(targetBlock, true, mob);
             clearCracks();
             targetBlock = null;
