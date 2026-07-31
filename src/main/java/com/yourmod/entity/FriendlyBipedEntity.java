@@ -3,7 +3,7 @@ package com.yourmod.entity;
 import com.yourmod.entity.ai.CompanionCombatGoal;
 import com.yourmod.entity.ai.CompanionEatAppleGoal;
 import com.yourmod.entity.ai.CompanionFollowPearlGoal;
-import com.yourmod.entity.ai.CompanionShootCrystalGoal;
+import com.yourmod.entity.ai.CompanionHandleCrystalGoal; // ★ 更新导入类名
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
@@ -55,35 +55,24 @@ public class FriendlyBipedEntity extends TamableAnimal {
         this.goalSelector.addGoal(1, new CompanionFollowPearlGoal(this));
         this.goalSelector.addGoal(2, new CompanionEatAppleGoal(this));
         
-        // ★ 优先级 3：打龙前优先射爆视线内的水晶
-        this.goalSelector.addGoal(3, new CompanionShootCrystalGoal(this));
-        // 优先级 4：普通战斗与打龙
-        this.goalSelector.addGoal(4, new CompanionCombatGoal(this, 1.5D));
+        // ★ 核心改动：接入全新写好的拆笼子+激光射水晶 AI
+        this.goalSelector.addGoal(3, new CompanionHandleCrystalGoal(this));
         
+        this.goalSelector.addGoal(4, new CompanionCombatGoal(this, 1.5D));
         this.goalSelector.addGoal(5, new FollowOwnerGoal(this, 1.2D, 5.0F, 2.0F));
         this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 64.0F, 1.0F));
         this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0D));
 
         this.targetSelector.addGoal(1, new OwnerHurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new OwnerHurtTargetGoal(this));
-        
-        // ★ 核心改动：重构索敌逻辑 (使用 Mob.class 取代 Monster.class，精准过滤)
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Mob.class, 10, true, false, (target) -> {
-            // 绝对不主动招惹末影人
             if (target instanceof EnderMan) return false;
-            
-            // 必须是敌对生物 (Enemy 接口包含了所有僵尸骷髅以及末影龙)
             if (!(target instanceof Enemy)) return false;
-
             LivingEntity owner = this.getOwner();
             if (owner == null) return false;
-            
-            // 如果是末影龙，视野放大到 64 格 (4096)
             if (target instanceof EnderDragon) {
                 return target.distanceToSqr(owner) <= 4096.0D;
             }
-            
-            // 普通怪物，限制在 24 格内防走丢
             return target.distanceToSqr(owner) <= 576.0D;
         }));
     }
@@ -104,7 +93,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
         return super.hurt(source, amount);
     }
 
-    // ★ 终极保险：只要正在进行落地水判定，直接底层豁免掉落伤害
     @Override
     public boolean causeFallDamage(float fallDistance, float multiplier, DamageSource source) {
         if (placedWaterPos != null || waterPickupTimer > 0) {
@@ -130,7 +118,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
             this.getLookControl().setLookAt(owner, 30.0F, 30.0F);
         }
 
-        // ★ 进阶落地水逻辑：扩大预判范围，极速下坠必不死
         if (!this.level().isClientSide) {
             if (placedWaterPos != null) {
                 waterPickupTimer--;
@@ -144,17 +131,16 @@ public class FriendlyBipedEntity extends TamableAnimal {
             }
 
             if (this.fallDistance > 3.0f && !this.onGround() && placedWaterPos == null) {
-                // 预判脚下 1 到 4 格，只要碰到实心方块立刻泼水
                 for (int i = 1; i <= 4; i++) {
                     BlockPos checkPos = this.blockPosition().below(i);
                     if (this.level().getBlockState(checkPos).blocksMotion()) {
                         BlockPos waterPos = checkPos.above();
                         if (this.level().getBlockState(waterPos).canBeReplaced()) {
-                            this.releaseUsingItem();
+                            if (this.isUsingItem()) this.releaseUsingItem();
                             this.switchMainHandItem(new ItemStack(Items.WATER_BUCKET));
                             this.level().setBlock(waterPos, Blocks.WATER.defaultBlockState(), 3);
                             placedWaterPos = waterPos;
-                            waterPickupTimer = 30; // 停留 1.5 秒
+                            waterPickupTimer = 30; 
                             break;
                         }
                     }
