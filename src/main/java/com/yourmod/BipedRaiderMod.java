@@ -14,7 +14,9 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
+import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -55,7 +57,6 @@ public class BipedRaiderMod {
 
     private void onClientSetup(FMLClientSetupEvent event) {
         EntityRenderers.register(CUSTOM_BIPED.get(), CustomBipedRenderer::new);
-        // 修复：使用专属的保镖渲染器
         EntityRenderers.register(FRIENDLY_BIPED.get(), FriendlyBipedRenderer::new); 
     }
 
@@ -68,7 +69,6 @@ public class BipedRaiderMod {
                 .add(Attributes.ARMOR, 2.0D)
                 .build());
                 
-        // 修复：直接使用 Monster 基础属性，修正了找不到 createAttributes 方法的报错
         event.put(FRIENDLY_BIPED.get(), Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 80.0D)
                 .add(Attributes.MOVEMENT_SPEED, 0.35D) 
@@ -87,5 +87,24 @@ public class BipedRaiderMod {
                 (type, level, spawnType, pos, random) -> Monster.checkMonsterSpawnRules((EntityType) type, level, spawnType, pos, random),
                 SpawnPlacementRegisterEvent.Operation.OR
         );
+    }
+
+    // ★ 新增：全局重生事件监听器
+    @Mod.EventBusSubscriber(modid = BipedRaiderMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    public static class PetEventHandler {
+        @SubscribeEvent
+        public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
+            if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
+                net.minecraft.server.level.ServerLevel serverLevel = player.serverLevel();
+                
+                // 遍历当前维度的所有实体，找到属于该玩家的守护灵
+                for (net.minecraft.world.entity.Entity entity : serverLevel.getAllEntities()) {
+                    if (entity instanceof FriendlyBipedEntity pet && player.getUUID().equals(pet.getOwnerUUID())) {
+                        // 强制拉回重生点
+                        pet.teleportTo(player.getX(), player.getY(), player.getZ());
+                    }
+                }
+            }
+        }
     }
 }
