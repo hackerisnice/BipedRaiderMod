@@ -27,7 +27,6 @@ public class CustomBipedEntity extends Monster {
     @Nullable
     private ItemStack savedMainHandItem = null;
     
-    // ★ 新增：金苹果食用计数器
     private int goldenApplesEaten = 0;
     private static final int MAX_APPLES = 5;
 
@@ -52,6 +51,10 @@ public class CustomBipedEntity extends Monster {
                 friendly.tame(nearestPlayer);
                 friendly.setCustomName(net.minecraft.network.chat.Component.literal("Aiko"));
                 friendly.setCustomNameVisible(true);
+                
+                // ★ 核心改动：生成守护灵时，给副手塞入盾牌
+                friendly.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+                
                 this.level().addFreshEntity(friendly);
             }
         }
@@ -76,7 +79,6 @@ public class CustomBipedEntity extends Monster {
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
     }
 
-    // ★ 新增：金苹果限制相关方法
     public boolean canEatApple() {
         return goldenApplesEaten < MAX_APPLES;
     }
@@ -110,7 +112,6 @@ public class CustomBipedEntity extends Monster {
         if (this.savedMainHandItem != null && !this.savedMainHandItem.isEmpty()) {
             tag.put("SavedMainHandItem", this.savedMainHandItem.saveOptional(provider));
         }
-        // ★ 保存金苹果吃的次数
         tag.putInt("GoldenApplesEaten", this.goldenApplesEaten);
     }
 
@@ -123,7 +124,6 @@ public class CustomBipedEntity extends Monster {
         } else {
             this.savedMainHandItem = ItemStack.EMPTY;
         }
-        // ★ 读取金苹果吃的次数
         if (tag.contains("GoldenApplesEaten")) {
             this.goldenApplesEaten = tag.getInt("GoldenApplesEaten");
         }
