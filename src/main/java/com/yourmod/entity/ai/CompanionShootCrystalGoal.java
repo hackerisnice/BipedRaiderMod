@@ -1,6 +1,7 @@
 package com.yourmod.entity.ai;
 
 import com.yourmod.entity.FriendlyBipedEntity;
+import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
@@ -9,20 +10,24 @@ import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
 import java.util.List;
 
-public class CompanionShootCrystalGoal extends Goal {
+public class CompanionHandleCrystalGoal extends Goal {
 
     private final FriendlyBipedEntity mob;
     private EndCrystal targetCrystal = null;
     private int attackCooldown = 0;
+    
+    // 状态机：0=激光射击，1=瞬移，2=拆铁栅栏，3=砍爆水晶
+    private int phase = 0; 
+    private boolean isCaged = false;
 
-    public CompanionShootCrystalGoal(FriendlyBipedEntity mob) {
+    public CompanionHandleCrystalGoal(FriendlyBipedEntity mob) {
         this.mob = mob;
-        // 瞄准水晶时必须停下脚步专心运算弹道
         this.setFlags(EnumSet.of(Flag.MOVE, Flag.LOOK));
     }
 
@@ -33,7 +38,6 @@ public class CompanionShootCrystalGoal extends Goal {
             return false;
         }
 
-        // 范围扩大到 96 格，确保能感知到极高空的水晶
         List<EndCrystal> crystals = mob.level().getEntitiesOfClass(EndCrystal.class, mob.getBoundingBox().inflate(96.0D));
         if (crystals.isEmpty()) return false;
 
@@ -41,9 +45,6 @@ public class CompanionShootCrystalGoal extends Goal {
         EndCrystal closest = null;
         for (EndCrystal crystal : crystals) {
             double dist = mob.distanceToSqr(crystal);
-            
-            // ★ 核心改动：彻底移除 hasLineOfSight(透视检测)
-            // 只要水晶在这个维度且在范围内，哪怕隔着黑曜石柱子也直接锁定
             if (dist < closestDist) {
                 closestDist = dist;
                 closest = crystal;
@@ -52,55 +53,110 @@ public class CompanionShootCrystalGoal extends Goal {
 
         if (closest != null) {
             targetCrystal = closest;
+            // 扫描判断是否被铁栅栏包围
+            isCaged = checkCaged(targetCrystal);
             return true;
+        }
+        return false;
+    }
+
+    // 扫描周围 5x5x5 是否有铁栅栏
+    private boolean checkCaged(EndCrystal crystal) {
+        BlockPos pos = crystal.blockPosition();
+        for (int x = -2; x <= 2; x++) {
+            for (int y = -1; y <= 3; y++) {
+                for (int z = -2; z <= 2; z++) {
+                    if (mob.level().getBlockState(pos.offset(x, y, z)).is(Blocks.IRON_BARS)) {
+                        return true;
+                    }
+                }
+            }
         }
         return false;
     }
 
     @Override
     public void start() {
-        mob.releaseUsingItem();
-        mob.switchMainHandItem(new ItemStack(Items.BOW));
+        if (mob.isUsingItem()) mob.releaseUsingItem();
+        phase = isCaged ? 1 : 0; // 有笼子直接切瞬移，没笼子切射击
     }
 
     @Override
     public void tick() {
         if (targetCrystal == null || !targetCrystal.isAlive()) return;
 
-        // 让脑袋稍微抬高，视觉上做出“仰望抛射”的动作
-        mob.getLookControl().setLookAt(targetCrystal.getX(), targetCrystal.getY() + 10.0, targetCrystal.getZ(), 30.0F, 30.0F);
+        mob.getLookControl().setLookAt(targetCrystal, 30.0F, 30.0F);
         mob.getNavigation().stop();
 
-        if (attackCooldown <= 0) {
-            mob.swing(InteractionHand.MAIN_HAND);
-            Arrow arrow = new Arrow(mob.level(), mob, new ItemStack(Items.ARROW), mob.getMainHandItem());
-            
-            // ★ 核心物理计算：抛物线弹道
-            double dX = targetCrystal.getX() - mob.getX();
-            double dY = targetCrystal.getY() - mob.getEyeY(); 
-            double dZ = targetCrystal.getZ() - mob.getZ();
-            
-            // 获取水平距离
-            double horizontalDist = Math.sqrt(dX * dX + dZ * dZ);
-            
-            // 抛物线抬枪补偿：水平距离越远，Y轴瞄准点抬得越高
-            // 这里的 0.22 是针对 3.0F 满蓄力箭速的抛物线拟合系数
-            double yOffset = dY + (horizontalDist * 0.22); 
-            
-            // 归一化生成最终的抛射向量
-            Vec3 aim = new Vec3(dX, yOffset, dZ).normalize();
-            
-            arrow.setPos(mob.getEyePosition().x, mob.getEyePosition().y - 0.2, mob.getEyePosition().z);
-            
-            // 3.0F 最大力度抛射，0.0F 绝对精准无扩散
-            arrow.shoot(aim.x, aim.y, aim.z, 3.0F, 0.0F); 
-            arrow.setBaseDamage(4.0);
-            mob.level().addFreshEntity(arrow);
-            mob.level().playSound(null, mob.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.NEUTRAL, 1.0F, 1.0F);
-            
-            attackCooldown = 30; // 射完后等待 1.5 秒观察落点
-        } else {
-            attackCooldown--;
+        // 状态 0：无重力激光射击
+        if (phase == 0) { 
+            if (attackCooldown <= 0) {
+                mob.switchMainHandItem(new ItemStack(Items.BOW));
+                mob.swing(InteractionHand.MAIN_HAND);
+                Arrow arrow = new Arrow(mob.level(), mob, new ItemStack(Items.ARROW), mob.getMainHandItem());
+                
+                Vec3 aim = targetCrystal.getBoundingBox().getCenter().subtract(mob.getEyePosition()).normalize();
+                arrow.setPos(mob.getEyePosition().x, mob.getEyePosition().y - 0.2, mob.getEyePosition().z);
+                
+                // ★ 极其硬核的改动：射速拉满，且取消重力，指哪打哪的激光弹道！
+                arrow.shoot(aim.x, aim.y, aim.z, 5.0F, 0.0F); 
+                arrow.setNoGravity(true); 
+                arrow.setBaseDamage(10.0);
+                
+                mob.level().addFreshEntity(arrow);
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                
+                attackCooldown = 30; 
+            } else {
+                attackCooldown--;
+            }
+        } 
+        // 状态 1：瞬移到铁栅栏柱子边缘
+        else if (phase == 1) { 
+            mob.teleportTo(targetCrystal.getX(), targetCrystal.getY(), targetCrystal.getZ() + 1.0);
+            mob.level().playSound(null, mob.blockPosition(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+            phase = 2;
+            attackCooldown = 5;
+        } 
+        // 状态 2：瞬间清空周围所有铁栅栏
+        else if (phase == 2) { 
+            if (attackCooldown <= 0) {
+                mob.switchMainHandItem(new ItemStack(Items.NETHERITE_PICKAXE));
+                mob.swing(InteractionHand.MAIN_HAND);
+                BlockPos center = targetCrystal.blockPosition();
+                boolean brokeAny = false;
+                
+                // 瞬间暴力拆解 5x5x5 范围内的全部铁栅栏
+                for (int x = -2; x <= 2; x++) {
+                    for (int y = -1; y <= 3; y++) {
+                        for (int z = -2; z <= 2; z++) {
+                            BlockPos p = center.offset(x, y, z);
+                            if (mob.level().getBlockState(p).is(Blocks.IRON_BARS)) {
+                                mob.level().destroyBlock(p, true, mob);
+                                brokeAny = true;
+                            }
+                        }
+                    }
+                }
+                if (brokeAny) {
+                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.IRON_GOLEM_DAMAGE, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                }
+                phase = 3;
+                attackCooldown = 10;
+            } else {
+                attackCooldown--;
+            }
+        } 
+        // 状态 3：用剑砍爆水晶
+        else if (phase == 3) { 
+            if (attackCooldown <= 0) {
+                mob.switchMainHandItem(new ItemStack(Items.DIAMOND_SWORD));
+                mob.swing(InteractionHand.MAIN_HAND);
+                targetCrystal.hurt(mob.damageSources().mobAttack(mob), 10.0F);
+                attackCooldown = 20;
+            } else {
+                attackCooldown--;
+            }
         }
     }
 
@@ -114,5 +170,7 @@ public class CompanionShootCrystalGoal extends Goal {
         mob.restoreMainHandItem();
         targetCrystal = null;
         attackCooldown = 10;
+        phase = 0;
+        isCaged = false;
     }
 }
