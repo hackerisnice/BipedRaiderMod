@@ -1,6 +1,7 @@
 package com.yourmod.entity;
 
 import com.yourmod.entity.ai.CompanionCombatGoal;
+import com.yourmod.entity.ai.CompanionEatAppleGoal;
 import com.yourmod.entity.ai.CompanionFollowPearlGoal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -48,29 +49,30 @@ public class FriendlyBipedEntity extends TamableAnimal {
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         
-        // 优先级 1：防走丢，距离极远时投掷珍珠
+        // 优先级 1：极远距离防走丢，投掷珍珠
         this.goalSelector.addGoal(1, new CompanionFollowPearlGoal(this));
         
-        // ★ 优先级 2：紧密贴身跟随（距离主人 5 格就开始追，靠到 2 格停下）
-        // 因为优先级高于战斗，所以玩家一跑，它立马放弃打怪跟上来
-        this.goalSelector.addGoal(2, new FollowOwnerGoal(this, 1.2D, 5.0F, 2.0F));
+        // ★ 优先级 2：保命第一，残血时无限制吃附魔金苹果
+        this.goalSelector.addGoal(2, new CompanionEatAppleGoal(this));
         
-        // 优先级 3：战斗系统
+        // ★ 优先级 3：战斗系统。优先级高于跟随，意味着一旦开打，必须打完才会回头
         this.goalSelector.addGoal(3, new CompanionCombatGoal(this, 1.5D));
         
-        // ★ 优先级 4：时时刻刻盯着玩家看 (概率 1.0F 代表 100%)
-        this.goalSelector.addGoal(4, new LookAtPlayerGoal(this, Player.class, 64.0F, 1.0F));
-        this.goalSelector.addGoal(5, new WaterAvoidingRandomStrollGoal(this, 1.0D));
+        // ★ 优先级 4：日常贴身跟随。只有在非战斗状态下（目标为 null 时），才会因为距离主人太远而触发
+        this.goalSelector.addGoal(4, new FollowOwnerGoal(this, 1.2D, 5.0F, 2.0F));
+        
+        // 优先级 5及以下：日常闲逛与看主人
+        this.goalSelector.addGoal(5, new LookAtPlayerGoal(this, Player.class, 64.0F, 1.0F));
+        this.goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 1.0D));
 
         // ================= 目标锁定 AI =================
         this.targetSelector.addGoal(1, new OwnerHurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new OwnerHurtTargetGoal(this));
         
-        // ★ 主动索敌限制：仅限玩家身边的怪物
+        // 索敌范围限制：不会跑太远去主动挑衅怪物
         this.targetSelector.addGoal(3, new NearestAttackableTargetGoal<>(this, Monster.class, 10, true, false, (target) -> {
             LivingEntity owner = this.getOwner();
             if (owner == null) return false;
-            // 判断目标与主人的距离（24 * 24 = 576），超出的怪物它理都不理
             return target.distanceToSqr(owner) <= 576.0D;
         }));
     }
@@ -79,12 +81,12 @@ public class FriendlyBipedEntity extends TamableAnimal {
     public void tick() {
         super.tick();
 
-        // ★ 空闲时的底层扭头逻辑：只要没打怪，且主人在场，脑袋强制转过去盯住主人
+        // 空闲时脑袋强制盯住主人
         if (this.getTarget() == null && this.getOwner() != null) {
             this.getLookControl().setLookAt(this.getOwner(), 30.0F, 30.0F);
         }
 
-        // 极客物理：落地水 (MLG Water Bucket)
+        // 落地水机制
         if (!this.level().isClientSide) {
             if (placedWaterPos != null) {
                 waterPickupTimer--;
@@ -104,6 +106,9 @@ public class FriendlyBipedEntity extends TamableAnimal {
                     
                     BlockPos waterPos = this.blockPosition();
                     if (this.level().getBlockState(waterPos).canBeReplaced()) {
+                        
+                        this.releaseUsingItem();
+                        
                         this.switchMainHandItem(new ItemStack(Items.WATER_BUCKET));
                         this.level().setBlock(waterPos, Blocks.WATER.defaultBlockState(), 3);
                         placedWaterPos = waterPos;
