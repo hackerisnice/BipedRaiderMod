@@ -21,11 +21,11 @@ public class CompanionCombatGoal extends Goal {
     private final double speedModifier;
     
     private int attackCooldown = 0;
-    private int cobwebCooldown = 0; // 蜘蛛网技能冷却
+    private int cobwebCooldown = 0; 
     
     private float maxFallDistance = 0f;
     private boolean isMaceAttacking = false;
-    private boolean waitingForCrit = false; // 是否正在腾空准备打暴击
+    private boolean waitingForCrit = false; 
     private boolean wasOnGround = true;
 
     public CompanionCombatGoal(FriendlyBipedEntity mob, double speedModifier) {
@@ -74,8 +74,7 @@ public class CompanionCombatGoal extends Goal {
             }
         }
 
-        // ================= 1. 高空重锤 =================
-        if (!mob.onGround() && !waitingForCrit) { // 如果不是普通跳劈，则累积重锤高度
+        if (!mob.onGround() && !waitingForCrit) { 
             maxFallDistance = Math.max(maxFallDistance, mob.fallDistance);
             if (maxFallDistance > 1.5f && !isMaceAttacking) {
                 mob.switchMainHandItem(new ItemStack(Items.MACE));
@@ -98,7 +97,6 @@ public class CompanionCombatGoal extends Goal {
             return; 
         }
 
-        // ================= 2. 远距离：弓箭 =================
         if (distSqr > 64.0) { 
             mob.releaseUsingItem(); 
             mob.getNavigation().moveTo(target, speedModifier * 0.8);
@@ -117,36 +115,28 @@ public class CompanionCombatGoal extends Goal {
                 
                 attackCooldown = 30; 
             }
-        } 
-        // ================= 3. 近战：高级身法操作 =================
-        else {
+        } else {
             mob.getNavigation().moveTo(target, speedModifier);
             mob.switchMainHandItem(new ItemStack(Items.DIAMOND_SWORD));
             
-            // ★ 高端操作 1：蜘蛛网控场 (每 10 秒触发一次，且敌人在 5 格以内)
             if (cobwebCooldown <= 0 && distSqr <= 25.0 && target.onGround() && mob.level().getBlockState(target.blockPosition()).canBeReplaced()) {
-                mob.releaseUsingItem();
+                if (mob.isUsingItem()) mob.releaseUsingItem();
                 mob.switchMainHandItem(new ItemStack(Items.COBWEB));
                 mob.level().setBlock(target.blockPosition(), Blocks.COBWEB.defaultBlockState(), 3);
                 mob.swing(InteractionHand.MAIN_HAND);
                 mob.restoreMainHandItem();
-                cobwebCooldown = 200; // 10秒冷却
+                cobwebCooldown = 200; 
             }
 
-            // ★ 高端操作 2：跳劈暴击 (Jump Crits)
             if (attackCooldown <= 0 && distSqr <= 12.0) {
-                mob.releaseUsingItem();
+                if (mob.isUsingItem()) mob.releaseUsingItem();
                 
-                // 起跳阶段
                 if (mob.onGround() && !waitingForCrit) {
                     mob.jumpFromGround();
-                    waitingForCrit = true; // 标记正在准备暴击
+                    waitingForCrit = true; 
                 } 
-                // 下落帧进行处决判定 (Y 轴速度小于 0 表示正在坠落)
                 else if (waitingForCrit && mob.getDeltaMovement().y < 0) {
                     mob.swing(InteractionHand.MAIN_HAND);
-                    
-                    // 利用底层伤害结算：基础伤害 * 1.5 暴击倍率
                     float baseDmg = (float) mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
                     target.hurt(mob.damageSources().mobAttack(mob), baseDmg * 1.5F);
                     mob.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
@@ -155,11 +145,15 @@ public class CompanionCombatGoal extends Goal {
                     attackCooldown = 20; 
                 }
             } 
-            // 如果在冷却，且目标没死，进行举盾防御
+            // ★ 修复举盾动作：加入 !mob.isUsingItem() 判断，防止无限重置状态
             else if (attackCooldown > 5 && distSqr <= 16.0 && !waitingForCrit) {
-                mob.startUsingItem(InteractionHand.OFF_HAND);
+                if (!mob.isUsingItem()) {
+                    mob.startUsingItem(InteractionHand.OFF_HAND);
+                }
             } else if (attackCooldown <= 5) {
-                mob.releaseUsingItem();
+                if (mob.isUsingItem()) {
+                    mob.releaseUsingItem();
+                }
             }
         }
 
@@ -169,7 +163,7 @@ public class CompanionCombatGoal extends Goal {
 
     @Override
     public void stop() {
-        mob.releaseUsingItem();
+        if (mob.isUsingItem()) mob.releaseUsingItem();
         mob.restoreMainHandItem();
         isMaceAttacking = false;
         waitingForCrit = false;
