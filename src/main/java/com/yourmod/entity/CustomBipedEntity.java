@@ -26,7 +26,6 @@ public class CustomBipedEntity extends Monster {
 
     @Nullable
     private ItemStack savedMainHandItem = null;
-    
     private int goldenApplesEaten = 0;
     private static final int MAX_APPLES = 5;
 
@@ -51,10 +50,7 @@ public class CustomBipedEntity extends Monster {
                 friendly.tame(nearestPlayer);
                 friendly.setCustomName(net.minecraft.network.chat.Component.literal("Aiko"));
                 friendly.setCustomNameVisible(true);
-                
-                // ★ 核心改动：生成守护灵时，给副手塞入盾牌
                 friendly.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
-                
                 this.level().addFreshEntity(friendly);
             }
         }
@@ -66,14 +62,18 @@ public class CustomBipedEntity extends Monster {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
         this.goalSelector.addGoal(2, new EscapeBoatAndBuildUpGoal(this, 1.2D));
-        this.goalSelector.addGoal(3, new AxeBreakShieldGoal(this));
-        this.goalSelector.addGoal(4, new ThrowHarmingPotionAtFeetGoal(this));
-        this.goalSelector.addGoal(5, new BreakBlockToReachTargetGoal(this));
-        this.goalSelector.addGoal(6, new EnderPearlTeleportGoal(this));
-        this.goalSelector.addGoal(7, new MeleeAttackGoal(this, 1.5D, true));
-        this.goalSelector.addGoal(8, new RandomStrollGoal(this, 0.6D));
-        this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(10, new RandomLookAroundGoal(this));
+        
+        // ★ 加入全新的放岩浆坑人 AI
+        this.goalSelector.addGoal(3, new LavaTrapGoal(this));
+        
+        this.goalSelector.addGoal(4, new AxeBreakShieldGoal(this));
+        this.goalSelector.addGoal(5, new ThrowHarmingPotionAtFeetGoal(this));
+        this.goalSelector.addGoal(6, new BreakBlockToReachTargetGoal(this));
+        this.goalSelector.addGoal(7, new EnderPearlTeleportGoal(this));
+        this.goalSelector.addGoal(8, new MeleeAttackGoal(this, 1.5D, true));
+        this.goalSelector.addGoal(9, new RandomStrollGoal(this, 0.6D));
+        this.goalSelector.addGoal(10, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(11, new RandomLookAroundGoal(this));
 
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
