@@ -38,25 +38,26 @@ public class CustomBipedEntity extends Monster {
         return super.finalizeSpawn(level, difficulty, reason, spawnData);
     }
 
-
-    // ★ 新增：死亡时触发事件，召唤友军实体
     @Override
     public void die(DamageSource cause) {
         if (!this.level().isClientSide) {
-            // 找到最近的玩家（通常是杀死它的玩家）
             Player nearestPlayer = this.level().getNearestPlayer(this, 16.0D);
             FriendlyBipedEntity friendly = BipedRaiderMod.FRIENDLY_BIPED.get().create(this.level());
             
             if (friendly != null && nearestPlayer != null) {
-                // 在死亡的当前位置生成
                 friendly.moveTo(this.getX(), this.getY(), this.getZ(), this.getYRot(), this.getXRot());
-                // 认玩家为主，从此跟随并保护
                 friendly.tame(nearestPlayer);
+                
+                // ★ 核心改动：强行赋予名字 Aiko，并且永久显示
+                friendly.setCustomName(net.minecraft.network.chat.Component.literal("Aiko"));
+                friendly.setCustomNameVisible(true);
+                
                 this.level().addFreshEntity(friendly);
             }
         }
         super.die(cause);
     }
+
 
     @Override
     protected void registerGoals() {
