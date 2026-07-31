@@ -26,15 +26,18 @@ public class CustomBipedEntity extends Monster {
 
     @Nullable
     private ItemStack savedMainHandItem = null;
+    
+    // ★ 新增：金苹果食用计数器
+    private int goldenApplesEaten = 0;
+    private static final int MAX_APPLES = 5;
 
     public CustomBipedEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
     }
 
     @Override
-    public net.minecraft.world.entity.SpawnGroupData finalizeSpawn(net.minecraft.world.level.ServerLevelAccessor level, net.minecraft.world.DifficultyInstance difficulty, net.minecraft.world.entity.MobSpawnType reason, @Nullable net.minecraft.world.entity.SpawnGroupData spawnData) {
-        this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
-        // 修复：移除了末尾的 dataTag 参数
+    public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason, @Nullable SpawnGroupData spawnData) {
+        this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
         return super.finalizeSpawn(level, difficulty, reason, spawnData);
     }
 
@@ -47,17 +50,13 @@ public class CustomBipedEntity extends Monster {
             if (friendly != null && nearestPlayer != null) {
                 friendly.moveTo(this.getX(), this.getY(), this.getZ(), this.getYRot(), this.getXRot());
                 friendly.tame(nearestPlayer);
-                
-                // ★ 核心改动：强行赋予名字 Aiko，并且永久显示
                 friendly.setCustomName(net.minecraft.network.chat.Component.literal("Aiko"));
                 friendly.setCustomNameVisible(true);
-                
                 this.level().addFreshEntity(friendly);
             }
         }
         super.die(cause);
     }
-
 
     @Override
     protected void registerGoals() {
@@ -73,10 +72,17 @@ public class CustomBipedEntity extends Monster {
         this.goalSelector.addGoal(9, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(10, new RandomLookAroundGoal(this));
 
-        // ★ 新增：受击反击优先级为 1。被打时会立刻回头反击，打死对方后自动切回目标
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
-        // 原有玩家仇恨优先级降为 2
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
+    }
+
+    // ★ 新增：金苹果限制相关方法
+    public boolean canEatApple() {
+        return goldenApplesEaten < MAX_APPLES;
+    }
+
+    public void consumeApple() {
+        goldenApplesEaten++;
     }
 
     public void switchMainHandItem(ItemStack newItem) {
@@ -104,6 +110,8 @@ public class CustomBipedEntity extends Monster {
         if (this.savedMainHandItem != null && !this.savedMainHandItem.isEmpty()) {
             tag.put("SavedMainHandItem", this.savedMainHandItem.saveOptional(provider));
         }
+        // ★ 保存金苹果吃的次数
+        tag.putInt("GoldenApplesEaten", this.goldenApplesEaten);
     }
 
     @Override
@@ -114,6 +122,10 @@ public class CustomBipedEntity extends Monster {
             this.savedMainHandItem = ItemStack.parseOptional(provider, tag.getCompound("SavedMainHandItem"));
         } else {
             this.savedMainHandItem = ItemStack.EMPTY;
+        }
+        // ★ 读取金苹果吃的次数
+        if (tag.contains("GoldenApplesEaten")) {
+            this.goldenApplesEaten = tag.getInt("GoldenApplesEaten");
         }
     }
 }
