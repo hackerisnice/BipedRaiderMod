@@ -26,14 +26,14 @@ public class CompanionFollowPearlGoal extends Goal {
     @Override
     public boolean canUse() {
         LivingEntity owner = mob.getOwner();
-        // 主人不存在、冷却未好、或者自己正处于战斗中时，不传送
         if (owner == null || cooldown > 0 || mob.getTarget() != null) {
             if (cooldown > 0) cooldown--;
             return false;
         }
         
-        // 距离主人超过 15 格 (15 * 15 = 225)，且双方在同一个维度，开始丢珍珠追赶
-        return mob.distanceToSqr(owner) > 225.0 && mob.level().dimension() == owner.level().dimension();
+        double dist = mob.distanceToSqr(owner);
+        // ★ 核心改动：仅在 15~32 格之间丢珍珠 (225 ~ 1024)。超出 1024 会被底层的瞬移接管。
+        return dist > 225.0 && dist <= 1024.0 && mob.level().dimension() == owner.level().dimension();
     }
 
     @Override
@@ -44,10 +44,9 @@ public class CompanionFollowPearlGoal extends Goal {
         mob.switchMainHandItem(new ItemStack(Items.ENDER_PEARL));
         mob.swing(InteractionHand.MAIN_HAND);
 
-        // 计算瞄准主人的高抛物线
         Vec3 ownerCenter = owner.position();
         Vec3 throwVec = ownerCenter.subtract(mob.position()).normalize();
-        throwVec = throwVec.scale(1.5).add(0, 0.4, 0); // 增加向上分量，丢得更远
+        throwVec = throwVec.scale(1.5).add(0, 0.4, 0); 
 
         ThrownEnderpearl pearl = new ThrownEnderpearl(mob.level(), mob);
         pearl.setPos(mob.getEyePosition().x, mob.getEyePosition().y - 0.1, mob.getEyePosition().z);
@@ -57,6 +56,6 @@ public class CompanionFollowPearlGoal extends Goal {
         mob.level().playSound(null, mob.blockPosition(), SoundEvents.ENDER_PEARL_THROW, SoundSource.NEUTRAL, 1.0F, 1.0F);
 
         mob.restoreMainHandItem();
-        cooldown = 100; // 5秒冷却，防止一直乱丢
+        cooldown = 100; 
     }
 }
