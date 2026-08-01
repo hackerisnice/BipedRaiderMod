@@ -90,6 +90,9 @@ public class FriendlyBipedEntity extends TamableAnimal {
         if (source.getEntity() instanceof Player || source.getEntity() instanceof FriendlyBipedEntity) {
             return false; 
         }
+        if (source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
+            return false;
+        }
         return super.hurt(source, amount);
     }
 
