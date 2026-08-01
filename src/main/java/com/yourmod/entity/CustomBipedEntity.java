@@ -46,11 +46,10 @@ public class CustomBipedEntity extends Monster {
         return super.finalizeSpawn(level, difficulty, reason, spawnData);
     }
 
-    // ★ 核心机制 1：宁死不屈！拒绝被船和矿车装走，并直接把载具踩碎！
     @Override
     public boolean startRiding(net.minecraft.world.entity.Entity vehicle, boolean force) {
         if (vehicle instanceof Boat || vehicle instanceof Minecart) {
-            vehicle.discard(); // 直接删除船
+            vehicle.discard(); 
             this.level().playSound(null, this.blockPosition(), SoundEvents.ZOMBIE_BREAK_WOODEN_DOOR, SoundSource.HOSTILE, 1.0F, 1.0F);
             return false;
         }
@@ -62,22 +61,20 @@ public class CustomBipedEntity extends Monster {
         super.tick();
         
         if (!this.level().isClientSide && this.isAlive()) {
-            // ★ 核心机制 2：主动踩碎靠近的船只 (防玩家推船)
             List<Boat> boats = this.level().getEntitiesOfClass(Boat.class, this.getBoundingBox().inflate(1.5D));
             for (Boat boat : boats) {
                 boat.discard();
                 this.level().playSound(null, this.blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.HOSTILE, 1.0F, 1.0F);
             }
 
-            // ★ 核心机制 3：粉碎光环！检测头顶(防沙子铁砧)和脚部(防速搭卡死)的固体方块
             BlockPos headPos = BlockPos.containing(this.getX(), this.getEyeY(), this.getZ());
             BlockPos legPos = this.blockPosition();
             
             if (this.level().getBlockState(headPos).blocksMotion()) {
-                this.level().destroyBlock(headPos, true, this); // 瞬间粉碎沙子/铁砧
+                this.level().destroyBlock(headPos, true, this); 
             }
             if (this.level().getBlockState(legPos).blocksMotion()) {
-                this.level().destroyBlock(legPos, true, this); // 瞬间粉碎卡住脚的方块
+                this.level().destroyBlock(legPos, true, this); 
             }
         }
     }
@@ -104,19 +101,20 @@ public class CustomBipedEntity extends Monster {
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
-        
-        // 我们等下重写它，确保它完美运行
         this.goalSelector.addGoal(2, new EscapeBoatAndBuildUpGoal(this, 1.2D));
-        
         this.goalSelector.addGoal(3, new LavaTrapGoal(this));
-        this.goalSelector.addGoal(4, new AxeBreakShieldGoal(this));
-        this.goalSelector.addGoal(5, new ThrowHarmingPotionAtFeetGoal(this));
-        this.goalSelector.addGoal(6, new BreakBlockToReachTargetGoal(this));
-        this.goalSelector.addGoal(7, new EnderPearlTeleportGoal(this));
-        this.goalSelector.addGoal(8, new MeleeAttackGoal(this, 1.5D, true));
-        this.goalSelector.addGoal(9, new RandomStrollGoal(this, 0.6D));
-        this.goalSelector.addGoal(10, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(11, new RandomLookAroundGoal(this));
+        
+        // ★ 核心改动：把刚写好的放蜘蛛网 AI 加入列表，优先级排在放岩浆后面
+        this.goalSelector.addGoal(4, new HostileCobwebTrapGoal(this));
+        
+        this.goalSelector.addGoal(5, new AxeBreakShieldGoal(this));
+        this.goalSelector.addGoal(6, new ThrowHarmingPotionAtFeetGoal(this));
+        this.goalSelector.addGoal(7, new BreakBlockToReachTargetGoal(this));
+        this.goalSelector.addGoal(8, new EnderPearlTeleportGoal(this));
+        this.goalSelector.addGoal(9, new MeleeAttackGoal(this, 1.5D, true));
+        this.goalSelector.addGoal(10, new RandomStrollGoal(this, 0.6D));
+        this.goalSelector.addGoal(11, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(12, new RandomLookAroundGoal(this));
 
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
