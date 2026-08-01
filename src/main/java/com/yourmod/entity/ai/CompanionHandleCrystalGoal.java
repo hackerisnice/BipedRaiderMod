@@ -10,7 +10,9 @@ import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import net.minecraft.world.entity.projectile.Arrow;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
@@ -22,7 +24,7 @@ public class CompanionHandleCrystalGoal extends Goal {
     private EndCrystal targetCrystal = null;
     private int attackCooldown = 0;
     
-    // 状态机：0=激光射击，1=瞬移，2=拆铁栅栏，3=砍爆水晶
+    // 状态机：0=准备射击, 1=瞬移上柱子, 2=拆铁栅栏
     private int phase = 0; 
     private boolean isCaged = false;
 
@@ -53,14 +55,12 @@ public class CompanionHandleCrystalGoal extends Goal {
 
         if (closest != null) {
             targetCrystal = closest;
-            // 扫描判断是否被铁栅栏包围
             isCaged = checkCaged(targetCrystal);
             return true;
         }
         return false;
     }
 
-    // 扫描周围 5x5x5 是否有铁栅栏
     private boolean checkCaged(EndCrystal crystal) {
         BlockPos pos = crystal.blockPosition();
         for (int x = -2; x <= 2; x++) {
@@ -78,7 +78,7 @@ public class CompanionHandleCrystalGoal extends Goal {
     @Override
     public void start() {
         if (mob.isUsingItem()) mob.releaseUsingItem();
-        phase = isCaged ? 1 : 0; // 有笼子直接切瞬移，没笼子切射击
+        phase = 0; // 永远先尝试射击
     }
 
     @Override
@@ -88,17 +88,35 @@ public class CompanionHandleCrystalGoal extends Goal {
         mob.getLookControl().setLookAt(targetCrystal, 30.0F, 30.0F);
         mob.getNavigation().stop();
 
-        // 状态 0：无重力激光射击
         if (phase == 0) { 
+            Vec3 eyePos = mob.getEyePosition();
+            // 瞄准水晶靠上的位置
+            Vec3 crystalTarget = new Vec3(targetCrystal.getX(), targetCrystal.getY() + 1.0, targetCrystal.getZ());
+            
+            // ★ 核心修复：发射物理射线预判，检查直达水晶的路线中间有没有黑曜石挡路
+            BlockHitResult hitResult = mob.level().clip(new ClipContext(
+                    eyePos, 
+                    crystalTarget, 
+                    ClipContext.Block.COLLIDER, 
+                    ClipContext.Fluid.NONE, 
+                    mob
+            ));
+
+            // 如果打到了方块（视线被黑曜石边缘遮挡），直接放弃射击，转入瞬移模式！
+            if (hitResult.getType() == BlockHitResult.Type.BLOCK) {
+                phase = 1;
+                return;
+            }
+
+            // 视线清晰，开火！
             if (attackCooldown <= 0) {
                 mob.switchMainHandItem(new ItemStack(Items.BOW));
                 mob.swing(InteractionHand.MAIN_HAND);
                 Arrow arrow = new Arrow(mob.level(), mob, new ItemStack(Items.ARROW), mob.getMainHandItem());
                 
-                Vec3 aim = targetCrystal.getBoundingBox().getCenter().subtract(mob.getEyePosition()).normalize();
-                arrow.setPos(mob.getEyePosition().x, mob.getEyePosition().y - 0.2, mob.getEyePosition().z);
+                Vec3 aim = crystalTarget.subtract(eyePos).normalize();
+                arrow.setPos(eyePos.x, eyePos.y, eyePos.z);
                 
-                // ★ 极其硬核的改动：射速拉满，且取消重力，指哪打哪的激光弹道！
                 arrow.shoot(aim.x, aim.y, aim.z, 5.0F, 0.0F); 
                 arrow.setNoGravity(true); 
                 arrow.setBaseDamage(10.0);
@@ -111,14 +129,15 @@ public class CompanionHandleCrystalGoal extends Goal {
                 attackCooldown--;
             }
         } 
-        // 状态 1：瞬移到铁栅栏柱子边缘
         else if (phase == 1) { 
-            mob.teleportTo(targetCrystal.getX(), targetCrystal.getY(), targetCrystal.getZ() + 1.0);
+            // 瞬移到柱子顶端，距离水晶 2 格的位置
+            mob.teleportTo(targetCrystal.getX() + 2.0, targetCrystal.getY(), targetCrystal.getZ());
             mob.level().playSound(null, mob.blockPosition(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.NEUTRAL, 1.0F, 1.0F);
-            phase = 2;
-            attackCooldown = 5;
+            
+            // 如果有笼子就去拆，没笼子就回到 phase 0 (由于已经在柱子上了，下一次检测必定无遮挡，直接贴脸射爆)
+            phase = isCaged ? 2 : 0;
+            attackCooldown = 10;
         } 
-        // 状态 2：瞬间清空周围所有铁栅栏
         else if (phase == 2) { 
             if (attackCooldown <= 0) {
                 mob.switchMainHandItem(new ItemStack(Items.NETHERITE_PICKAXE));
@@ -126,7 +145,7 @@ public class CompanionHandleCrystalGoal extends Goal {
                 BlockPos center = targetCrystal.blockPosition();
                 boolean brokeAny = false;
                 
-                // 瞬间暴力拆解 5x5x5 范围内的全部铁栅栏
+                // 瞬间拆掉所有铁栅栏
                 for (int x = -2; x <= 2; x++) {
                     for (int y = -1; y <= 3; y++) {
                         for (int z = -2; z <= 2; z++) {
@@ -141,23 +160,14 @@ public class CompanionHandleCrystalGoal extends Goal {
                 if (brokeAny) {
                     mob.level().playSound(null, mob.blockPosition(), SoundEvents.IRON_GOLEM_DAMAGE, SoundSource.NEUTRAL, 1.0F, 1.0F);
                 }
-                phase = 3;
+                
+                // 拆完笼子，重置回 phase 0 贴脸射爆
+                phase = 0;
                 attackCooldown = 10;
             } else {
                 attackCooldown--;
             }
         } 
-        // 状态 3：用剑砍爆水晶
-        else if (phase == 3) { 
-            if (attackCooldown <= 0) {
-                mob.switchMainHandItem(new ItemStack(Items.DIAMOND_SWORD));
-                mob.swing(InteractionHand.MAIN_HAND);
-                targetCrystal.hurt(mob.damageSources().mobAttack(mob), 10.0F);
-                attackCooldown = 20;
-            } else {
-                attackCooldown--;
-            }
-        }
     }
 
     @Override
@@ -167,6 +177,7 @@ public class CompanionHandleCrystalGoal extends Goal {
 
     @Override
     public void stop() {
+        if (mob.isUsingItem()) mob.releaseUsingItem();
         mob.restoreMainHandItem();
         targetCrystal = null;
         attackCooldown = 10;
