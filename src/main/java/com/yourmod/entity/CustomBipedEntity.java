@@ -25,14 +25,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.DifficultyInstance;
 import org.jetbrains.annotations.Nullable;
-import net.minecraft.core.HolderLookup;
 
 import java.util.List;
 
 public class CustomBipedEntity extends Monster {
 
-    @Nullable
-    private ItemStack savedMainHandItem = null;
     private int goldenApplesEaten = 0;
     private static final int MAX_APPLES = 5;
 
@@ -42,7 +39,9 @@ public class CustomBipedEntity extends Monster {
 
     @Override
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason, @Nullable SpawnGroupData spawnData) {
+        // ★ 核心修复：主手塞剑，副手塞盾，武装到牙齿
         this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
+        this.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
         return super.finalizeSpawn(level, difficulty, reason, spawnData);
     }
 
@@ -103,15 +102,15 @@ public class CustomBipedEntity extends Monster {
         this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
         this.goalSelector.addGoal(2, new EscapeBoatAndBuildUpGoal(this, 1.2D));
         this.goalSelector.addGoal(3, new LavaTrapGoal(this));
-        
-        // ★ 核心改动：把刚写好的放蜘蛛网 AI 加入列表，优先级排在放岩浆后面
         this.goalSelector.addGoal(4, new HostileCobwebTrapGoal(this));
-        
         this.goalSelector.addGoal(5, new AxeBreakShieldGoal(this));
         this.goalSelector.addGoal(6, new ThrowHarmingPotionAtFeetGoal(this));
         this.goalSelector.addGoal(7, new BreakBlockToReachTargetGoal(this));
         this.goalSelector.addGoal(8, new EnderPearlTeleportGoal(this));
-        this.goalSelector.addGoal(9, new MeleeAttackGoal(this, 1.5D, true));
+        
+        // ★ 接入新写的动态高级 PVP AI
+        this.goalSelector.addGoal(9, new HostileAdvancedCombatGoal(this, 1.5D));
+        
         this.goalSelector.addGoal(10, new RandomStrollGoal(this, 0.6D));
         this.goalSelector.addGoal(11, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(12, new RandomLookAroundGoal(this));
@@ -128,43 +127,25 @@ public class CustomBipedEntity extends Monster {
         goldenApplesEaten++;
     }
 
+    // ★ 核心修复：彻底废除缓存机制，防止数据覆盖导致空手
     public void switchMainHandItem(ItemStack newItem) {
-        if (savedMainHandItem == null) {
-            savedMainHandItem = this.getMainHandItem().copy();
-        }
         this.setItemInHand(InteractionHand.MAIN_HAND, newItem);
     }
 
+    // ★ 核心修复：保底强制切回钻石剑，永不空手
     public void restoreMainHandItem() {
-        if (savedMainHandItem != null) {
-            this.setItemInHand(InteractionHand.MAIN_HAND, savedMainHandItem.copy());
-            savedMainHandItem = null;
-        }
-    }
-
-    public boolean isMainHandSaved() {
-        return savedMainHandItem != null;
+        this.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
     }
 
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
-        HolderLookup.Provider provider = this.level().registryAccess();
-        if (this.savedMainHandItem != null && !this.savedMainHandItem.isEmpty()) {
-            tag.put("SavedMainHandItem", this.savedMainHandItem.saveOptional(provider));
-        }
         tag.putInt("GoldenApplesEaten", this.goldenApplesEaten);
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
-        HolderLookup.Provider provider = this.level().registryAccess();
-        if (tag.contains("SavedMainHandItem")) {
-            this.savedMainHandItem = ItemStack.parseOptional(provider, tag.getCompound("SavedMainHandItem"));
-        } else {
-            this.savedMainHandItem = ItemStack.EMPTY;
-        }
         if (tag.contains("GoldenApplesEaten")) {
             this.goldenApplesEaten = tag.getInt("GoldenApplesEaten");
         }
