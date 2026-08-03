@@ -1,0 +1,6 @@
+{
+  "parent": "block/cube_all",
+  "textures": {
+    "all": "bipedraidermod:block/heart_block"
+  }
+}
