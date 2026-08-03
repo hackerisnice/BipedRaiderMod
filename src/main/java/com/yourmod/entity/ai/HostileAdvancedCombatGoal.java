@@ -20,8 +20,6 @@ public class HostileAdvancedCombatGoal extends Goal {
     private final double speedModifier;
     private int attackCooldown = 0;
     private int shieldHoldTimer = 0;
-    
-    // ★ 新增：连击计数器
     private int comboCount = 0;
 
     public HostileAdvancedCombatGoal(CustomBipedEntity mob, double speedModifier) {
@@ -93,33 +91,44 @@ public class HostileAdvancedCombatGoal extends Goal {
 
         if (attackCooldown > 0) attackCooldown--;
 
-        // 如果玩家拉开了距离，强制重置连击段数
         if (distSqr > 16.0 && attackCooldown <= 0) {
             comboCount = 0;
         }
 
-        // ================= ★ 终极连招执行 =================
-        // 放宽近战范围，确保它能像玩家一样隔着 3 格进行打击
-        if (distSqr <= 12.0 && attackCooldown <= 0) {
-            if (mob.isUsingItem()) mob.releaseUsingItem(); 
-            mob.swing(InteractionHand.MAIN_HAND);
-            mob.doHurtTarget(target);
-            
-            // 播放挥剑横扫音效，增加连击压迫感
-            mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
+        // ★ 获取水平和垂直差，识别高低差逃课
+        double horizDist = Math.sqrt(Math.pow(mob.getX() - target.getX(), 2) + Math.pow(mob.getZ() - target.getZ(), 2));
+        double yDiff = target.getY() - mob.getY();
 
-            // 粘人突进：每次挥剑，身体获得一个向着玩家的推力，强制拉近距离
+        // 判定条件：正常距离内，或者垂直悬空在头顶 (水平近，高度高)
+        if (attackCooldown <= 0 && (distSqr <= 16.0 || (horizDist <= 4.0 && yDiff > 1.0 && yDiff < 6.0))) {
+            if (mob.isUsingItem()) mob.releaseUsingItem(); 
+            
+            // ★ 防空起飞连击
+            if (yDiff > 1.5 && mob.onGround()) {
+                Vec3 leap = target.position().subtract(mob.position()).normalize().scale(0.4);
+                mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.3 + 0.2, 1.5), leap.z); 
+                
+                mob.swing(InteractionHand.MAIN_HAND);
+                mob.doHurtTarget(target);
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
+            } else {
+                // 常规地面挥砍
+                mob.swing(InteractionHand.MAIN_HAND);
+                mob.doHurtTarget(target);
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
+            }
+
+            // 突进粘人
             Vec3 lunge = target.position().subtract(mob.position()).normalize().scale(0.25);
             mob.setDeltaMovement(mob.getDeltaMovement().add(lunge.x, 0, lunge.z));
 
             comboCount++;
             
-            // 三段式连击结算
             if (comboCount >= 3) {
-                attackCooldown = 25; // 三刀砍完，后摇 1.25 秒
+                attackCooldown = 25; 
                 comboCount = 0;
             } else {
-                attackCooldown = 6;  // 连击间隔极度缩短为 0.3 秒！
+                attackCooldown = 6;  
             }
         }
     }
