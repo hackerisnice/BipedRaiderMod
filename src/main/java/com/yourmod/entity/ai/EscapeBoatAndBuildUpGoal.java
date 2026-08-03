@@ -15,6 +15,9 @@ public class EscapeBoatAndBuildUpGoal extends Goal {
 
     private final CustomBipedEntity mob;
     private final double speedModifier;
+    
+    // ★ 核心修复：跳跃刻数计时器
+    private int jumpTick = 0; 
 
     public EscapeBoatAndBuildUpGoal(CustomBipedEntity mob, double speedModifier) {
         this.mob = mob;
@@ -31,8 +34,12 @@ public class EscapeBoatAndBuildUpGoal extends Goal {
         double dz = target.getZ() - mob.getZ();
         double horizontalDistSqr = dx * dx + dz * dz;
         
-        // 目标比自己高出 2 格以上，且水平距离在 5 格以内，直接启动垂直速搭
         return target.getY() - mob.getY() > 2.0 && horizontalDistSqr < 25.0;
+    }
+
+    @Override
+    public void start() {
+        jumpTick = 0;
     }
 
     @Override
@@ -40,28 +47,40 @@ public class EscapeBoatAndBuildUpGoal extends Goal {
         LivingEntity target = mob.getTarget();
         if (target == null) return;
         
-        // 死死盯着目标
         mob.getLookControl().setLookAt(target, 30.0F, 30.0F);
         mob.getNavigation().stop();
+        
+        // ★ 核心修复：强制清除水平速度，保证垂直搭高时不乱晃掉下柱子
+        mob.setDeltaMovement(0, mob.getDeltaMovement().y, 0);
 
-        // 只要脚踩实地，立刻起跳
-        if (mob.onGround()) {
+        // 如果在地上，且计时器为0，立刻起跳
+        if (mob.onGround() && jumpTick == 0) {
             mob.getJumpControl().jump();
+            jumpTick = 1;
         } 
-        // 只要人在空中，立刻检测脚下能否塞入方块
-        else {
-            BlockPos posBelow = BlockPos.containing(mob.getX(), mob.getY() - 0.1, mob.getZ());
+        // 腾空状态下，每刻递增
+        else if (jumpTick > 0) {
+            jumpTick++;
             
-            if (mob.level().getBlockState(posBelow).canBeReplaced()) {
-                mob.switchMainHandItem(new ItemStack(Items.COBBLESTONE));
-                mob.swing(InteractionHand.MAIN_HAND);
-                // 瞬间放圆石
-                mob.level().setBlock(posBelow, Blocks.COBBLESTONE.defaultBlockState(), 3);
-                mob.restoreMainHandItem();
+            // ★ 完美时机：起跳后的第 6 刻 (约 0.3 秒)，正是处于跳跃弧线的最高点
+            if (jumpTick >= 6) {
+                BlockPos posBelow = BlockPos.containing(mob.getX(), mob.getY() - 0.2, mob.getZ());
                 
-                // 赋予微小的向上推力，确保实体稳稳踩在方块上而不是卡进方块里
-                mob.setDeltaMovement(mob.getDeltaMovement().x, 0.3, mob.getDeltaMovement().z);
+                if (mob.level().getBlockState(posBelow).canBeReplaced()) {
+                    mob.switchMainHandItem(new ItemStack(Items.COBBLESTONE));
+                    mob.swing(InteractionHand.MAIN_HAND);
+                    mob.level().setBlock(posBelow, Blocks.COBBLESTONE.defaultBlockState(), 3);
+                    mob.restoreMainHandItem();
+                }
+                
+                // 垫完方块，重置循环准备下一次起跳
+                jumpTick = 0;
             }
         }
+    }
+    
+    @Override
+    public void stop() {
+        jumpTick = 0;
     }
 }
