@@ -63,20 +63,15 @@ public class CompanionCombatGoal extends Goal {
         LivingEntity target = mob.getTarget();
         if (target == null) return;
         
-        // ★ 核心机制：末影龙专项弱点锁定
         boolean isDragon = target instanceof EnderDragon;
         EnderDragon dragon = isDragon ? (EnderDragon) target : null;
         
-        // 如果是龙，将所有视线、寻路和距离判定的焦点转移到龙的头部 (dragon.head)
         Entity aimEntity = isDragon ? dragon.head : target;
         double distSqr = mob.distanceToSqr(aimEntity);
 
-        // 死死盯住目标（或龙头）
         mob.getLookControl().setLookAt(aimEntity, 30.0F, 30.0F);
-
         if (cobwebCooldown > 0) cobwebCooldown--;
 
-        // 跳崖追击：检测目标 (或龙头) 的高度
         if (mob.onGround() && aimEntity.getY() < mob.getY() - 3.0) {
             Vec3 jumpDir = new Vec3(aimEntity.getX() - mob.getX(), 0, aimEntity.getZ() - mob.getZ());
             if (jumpDir.lengthSqr() > 0.01) {
@@ -85,7 +80,7 @@ public class CompanionCombatGoal extends Goal {
             }
         }
 
-        // ================= 1. 高空重锤 =================
+        // 高空重锤
         if (!mob.onGround() && !waitingForCrit) { 
             maxFallDistance = Math.max(maxFallDistance, mob.fallDistance);
             if (maxFallDistance > 1.5f && !isMaceAttacking) {
@@ -93,11 +88,10 @@ public class CompanionCombatGoal extends Goal {
                 isMaceAttacking = true;
             }
         } else if (!wasOnGround && isMaceAttacking) {
-            if (maxFallDistance > 1.5f && distSqr < 25.0) { // 重锤判定范围稍微放宽
+            if (maxFallDistance > 1.5f && distSqr < 25.0) { 
                 mob.swing(InteractionHand.MAIN_HAND);
                 float baseDmg = (float) mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
                 
-                // 重锤落地时也针对龙头
                 if (isDragon) {
                     dragon.head.hurt(mob.damageSources().mobAttack(mob), baseDmg + (Math.min(maxFallDistance, 20) * 1.5f));
                 } else {
@@ -116,14 +110,16 @@ public class CompanionCombatGoal extends Goal {
             return; 
         }
 
-        // ================= 2. 远距离：防空弹道预判 =================
-        // 打龙时，由于龙头碰撞箱在中心，近战范围被放大到 256格 (16*16)
         double bowEngageDist = isDragon ? 256.0 : 64.0;
         
-        if (distSqr > bowEngageDist) { 
+        // ★ 分离距离计算，用于解决“头顶盲区”
+        double horizDist = Math.sqrt(Math.pow(mob.getX() - aimEntity.getX(), 2) + Math.pow(mob.getZ() - aimEntity.getZ(), 2));
+        double yDiff = aimEntity.getY() - mob.getY();
+        
+        // 如果目标水平距离太远，或者在极高空（且水平也很远），才使用弓箭
+        if (horizDist > 8.0 && distSqr > bowEngageDist) { 
             if (mob.isUsingItem()) mob.releaseUsingItem(); 
             
-            // 如果是龙，向龙头寻路；否则向目标寻路
             if (isDragon) {
                 mob.getNavigation().moveTo(dragon.head.getX(), dragon.head.getY(), dragon.head.getZ(), speedModifier * 0.8);
             } else {
@@ -136,21 +132,17 @@ public class CompanionCombatGoal extends Goal {
                 mob.swing(InteractionHand.MAIN_HAND);
                 Arrow arrow = new Arrow(mob.level(), mob, new ItemStack(Items.ARROW), mob.getMainHandItem());
                 
-                // ★ 核心火控：向量提前量预判
                 Vec3 targetCenter = aimEntity.getBoundingBox().getCenter();
                 Vec3 targetVelocity = target.getDeltaMovement(); 
                 
-                // 箭速 1.6F。计算预计飞行时间 (ticks)
                 double flightTime = Math.sqrt(distSqr) / 1.6;
-                // 将目标的当前速度乘以飞行时间，并附加 0.9 的阻尼，防止过度预判
                 Vec3 predictedPos = targetCenter.add(targetVelocity.scale(flightTime * 0.9));
                 
-                // 朝着预判坐标开火
                 Vec3 aim = predictedPos.subtract(mob.getEyePosition()).normalize();
                 
                 arrow.setPos(mob.getEyePosition().x, mob.getEyePosition().y - 0.2, mob.getEyePosition().z);
                 arrow.shoot(aim.x, aim.y + 0.1, aim.z, 1.6F, 0.0F); 
-                arrow.setBaseDamage(isDragon ? 7.0 : 4.0); // 打龙箭矢特攻
+                arrow.setBaseDamage(isDragon ? 7.0 : 4.0); 
                 
                 mob.level().addFreshEntity(arrow);
                 mob.level().playSound(null, mob.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.NEUTRAL, 1.0F, 1.0F);
@@ -158,10 +150,8 @@ public class CompanionCombatGoal extends Goal {
                 attackCooldown = 30; 
             }
         } 
-        // ================= 3. 近战：锁头跳劈 =================
         else {
             if (isDragon) {
-                // 龙落地时，疯狂冲向龙头
                 mob.getNavigation().moveTo(dragon.head.getX(), dragon.head.getY(), dragon.head.getZ(), speedModifier);
             } else {
                 mob.getNavigation().moveTo(target, speedModifier);
@@ -169,7 +159,6 @@ public class CompanionCombatGoal extends Goal {
             
             mob.switchMainHandItem(new ItemStack(Items.DIAMOND_SWORD));
             
-            // 蜘蛛网控场 (对龙无效，因为龙会直接破坏方块)
             if (!isDragon && cobwebCooldown <= 0 && distSqr <= 25.0 && target.onGround() && mob.level().getBlockState(target.blockPosition()).canBeReplaced()) {
                 if (mob.isUsingItem()) mob.releaseUsingItem();
                 mob.switchMainHandItem(new ItemStack(Items.COBWEB));
@@ -179,28 +168,45 @@ public class CompanionCombatGoal extends Goal {
                 cobwebCooldown = 200; 
             }
 
-            // 龙的近战触发距离放宽到 36格(6*6)，普通怪 12格
-            double meleeTriggerDist = isDragon ? 36.0 : 12.0;
+            double meleeTriggerDist = isDragon ? 36.0 : 16.0;
 
-            if (attackCooldown <= 0 && distSqr <= meleeTriggerDist) {
+            // ★ 核心防空解法：如果正常判定在范围内，或者敌人在头顶悬浮（水平很近，高度差在 1~6 格以内），立刻启动近战
+            if (attackCooldown <= 0 && (distSqr <= meleeTriggerDist || (horizDist <= 4.0 && yDiff > 1.0 && yDiff < 6.0))) {
                 if (mob.isUsingItem()) mob.releaseUsingItem();
                 
-                if (mob.onGround() && !waitingForCrit) {
+                // ★ 升龙斩 (Anti-Air Leap)：目标在上方，直接拔地而起
+                if (yDiff > 1.5 && mob.onGround()) {
+                    Vec3 leap = aimEntity.position().subtract(mob.position()).normalize().scale(0.4);
+                    // 动态计算起跳高度，赋予强劲的 Y 轴速度
+                    mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.3 + 0.2, 1.5), leap.z); 
+                    
+                    mob.swing(InteractionHand.MAIN_HAND);
+                    float baseDmg = (float) mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
+                    
+                    if (isDragon) {
+                        dragon.head.hurt(mob.damageSources().mobAttack(mob), baseDmg * 2.0F);
+                    } else {
+                        target.hurt(mob.damageSources().mobAttack(mob), baseDmg * 1.5F);
+                    }
+                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                    attackCooldown = 20;
+                }
+                // 常规地面跳劈
+                else if (mob.onGround() && !waitingForCrit) {
                     mob.jumpFromGround();
                     waitingForCrit = true; 
                 } 
+                // 下落处决
                 else if (waitingForCrit && mob.getDeltaMovement().y < 0) {
                     mob.swing(InteractionHand.MAIN_HAND);
                     float baseDmg = (float) mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
                     
-                    // ★ 核心斩杀：直接调用龙头的受到伤害方法，并赋予屠龙者 2倍暴击
                     if (isDragon) {
                         dragon.head.hurt(mob.damageSources().mobAttack(mob), baseDmg * 2.0F);
-                        mob.level().playSound(null, dragon.head.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
                     } else {
                         target.hurt(mob.damageSources().mobAttack(mob), baseDmg * 1.5F);
-                        mob.level().playSound(null, target.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
                     }
+                    mob.level().playSound(null, aimEntity.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
                     
                     waitingForCrit = false;
                     attackCooldown = 20; 
