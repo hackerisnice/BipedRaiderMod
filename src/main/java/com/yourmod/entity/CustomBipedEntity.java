@@ -75,14 +75,16 @@ public class CustomBipedEntity extends Monster {
                 this.level().playSound(null, this.blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.HOSTILE, 1.0F, 1.0F);
             }
 
+            // ★ 核心修复：把下半身的判定点从脚底（腿部）抬高到腰部（Y + 0.5）
+            // 这样它搭方块时，踩在脚底的圆石就不会被判定为“卡住自己”而遭到粉碎了。
             BlockPos headPos = BlockPos.containing(this.getX(), this.getEyeY(), this.getZ());
-            BlockPos legPos = this.blockPosition();
+            BlockPos waistPos = BlockPos.containing(this.getX(), this.getY() + 0.5, this.getZ());
             
             if (this.level().getBlockState(headPos).blocksMotion()) {
                 this.level().destroyBlock(headPos, true, this); 
             }
-            if (this.level().getBlockState(legPos).blocksMotion()) {
-                this.level().destroyBlock(legPos, true, this); 
+            if (this.level().getBlockState(waistPos).blocksMotion()) {
+                this.level().destroyBlock(waistPos, true, this); 
             }
         }
     }
