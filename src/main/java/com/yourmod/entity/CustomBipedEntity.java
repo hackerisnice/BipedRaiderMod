@@ -23,6 +23,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.DifficultyInstance;
 import org.jetbrains.annotations.Nullable;
 
@@ -39,10 +42,17 @@ public class CustomBipedEntity extends Monster {
 
     @Override
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType reason, @Nullable SpawnGroupData spawnData) {
-        // ★ 核心修复：主手塞剑，副手塞盾，武装到牙齿
         this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.DIAMOND_SWORD));
         this.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
         return super.finalizeSpawn(level, difficulty, reason, spawnData);
+    }
+
+    // ★ 核心修复：蜘蛛的体质！免疫自己放的蜘蛛网减速，在网里健步如飞
+    @Override
+    public void makeStuckInBlock(BlockState state, Vec3 multiplier) {
+        if (!state.is(Blocks.COBWEB)) {
+            super.makeStuckInBlock(state, multiplier);
+        }
     }
 
     @Override
@@ -107,10 +117,7 @@ public class CustomBipedEntity extends Monster {
         this.goalSelector.addGoal(6, new ThrowHarmingPotionAtFeetGoal(this));
         this.goalSelector.addGoal(7, new BreakBlockToReachTargetGoal(this));
         this.goalSelector.addGoal(8, new EnderPearlTeleportGoal(this));
-        
-        // ★ 接入新写的动态高级 PVP AI
         this.goalSelector.addGoal(9, new HostileAdvancedCombatGoal(this, 1.5D));
-        
         this.goalSelector.addGoal(10, new RandomStrollGoal(this, 0.6D));
         this.goalSelector.addGoal(11, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(12, new RandomLookAroundGoal(this));
@@ -127,12 +134,10 @@ public class CustomBipedEntity extends Monster {
         goldenApplesEaten++;
     }
 
-    // ★ 核心修复：彻底废除缓存机制，防止数据覆盖导致空手
     public void switchMainHandItem(ItemStack newItem) {
         this.setItemInHand(InteractionHand.MAIN_HAND, newItem);
     }
 
-    // ★ 核心修复：保底强制切回钻石剑，永不空手
     public void restoreMainHandItem() {
         this.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD));
     }
