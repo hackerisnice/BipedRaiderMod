@@ -13,6 +13,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.SpawnPlacementTypes;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -26,6 +27,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
 import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
@@ -47,7 +49,6 @@ public class BipedRaiderMod {
 
     public static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
     
-    // ★ 注册方块和物品
     public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MODID);
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
 
@@ -129,7 +130,6 @@ public class BipedRaiderMod {
             }
         }
 
-        // ★ 核心机制：祭坛复活仪式
         @SubscribeEvent
         public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
             Level level = event.getLevel();
@@ -137,9 +137,7 @@ public class BipedRaiderMod {
             BlockPos pos = event.getPos();
             ItemStack item = event.getItemStack();
 
-            // 如果点击的是 Heart Block 且手里拿着信标
             if (level.getBlockState(pos).is(HEART_BLOCK.get()) && item.is(Items.BEACON)) {
-                // 必须放在方块顶端
                 if (event.getFace() == Direction.UP) {
                     if (level.isClientSide) {
                         event.setCanceled(true);
@@ -147,7 +145,6 @@ public class BipedRaiderMod {
                         return;
                     }
 
-                    // 唯一性检验：遍历服务器，检查你是否已经有 Aiko 了
                     boolean alreadyHasAiko = false;
                     if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                         for (net.minecraft.world.entity.Entity e : serverLevel.getAllEntities()) {
@@ -165,15 +162,26 @@ public class BipedRaiderMod {
                         return;
                     }
 
-                    // 献祭信标
                     if (!player.isCreative()) {
                         item.shrink(1);
                     }
-                    // 摧毁心脏方块 (仪式消耗)
+
+                    // ★ 核心特效演出：五雷轰顶仪式
+                    if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                        for (int i = 0; i < 5; i++) {
+                            LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(serverLevel);
+                            if (lightning != null) {
+                                lightning.moveTo(Vec3.atBottomCenterOf(pos));
+                                // 设置为纯视觉闪电，防止伤人或破坏掉落物/方块
+                                lightning.setVisualOnly(true); 
+                                serverLevel.addFreshEntity(lightning);
+                            }
+                        }
+                    }
+
                     level.destroyBlock(pos, false);
                     player.getPersistentData().remove("PlacedHeartBlockPos");
 
-                    // 降临 Aiko
                     FriendlyBipedEntity aiko = FRIENDLY_BIPED.get().create(level);
                     if (aiko != null) {
                         aiko.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, player.getYRot(), player.getXRot());
@@ -183,7 +191,6 @@ public class BipedRaiderMod {
                         aiko.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
                         level.addFreshEntity(aiko);
                         
-                        // 播放信标激活的宏大音效
                         level.playSound(null, pos, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0F, 1.0F);
                     }
                     
