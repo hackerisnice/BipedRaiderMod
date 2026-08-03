@@ -8,11 +8,16 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.AxeItem;
+import net.minecraft.world.item.BowItem;
+import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.SwordItem;
+import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
+import java.util.List;
 
 public class HostileAdvancedCombatGoal extends Goal {
     
@@ -56,12 +61,14 @@ public class HostileAdvancedCombatGoal extends Goal {
 
         boolean holdsAxe = false;
         boolean isSwingingAtMe = false;
+        boolean isRangedThreat = false; // ★ 新增：远程威胁警报
 
         if (target instanceof Player player) {
             ItemStack playerItem = player.getMainHandItem();
             holdsAxe = playerItem.getItem() instanceof AxeItem;
             boolean holdsSword = playerItem.getItem() instanceof SwordItem;
 
+            // 1. 判定玩家挥剑
             if (holdsSword && player.swingTime > 0) {
                 Vec3 viewVector = player.getViewVector(1.0F).normalize();
                 Vec3 playerToMob = mob.getBoundingBox().getCenter().subtract(player.getEyePosition()).normalize();
@@ -69,17 +76,47 @@ public class HostileAdvancedCombatGoal extends Goal {
                     isSwingingAtMe = true;
                 }
             }
+            
+            // 2. 判定玩家正在拉弓/拉弩/蓄力三叉戟，且准星对准了 Boss
+            if (player.isUsingItem() && (player.getUseItem().getItem() instanceof BowItem || 
+                player.getUseItem().getItem() instanceof CrossbowItem || 
+                player.getUseItem().getItem() instanceof TridentItem)) {
+                
+                Vec3 viewVector = player.getViewVector(1.0F).normalize();
+                Vec3 playerToMob = mob.getBoundingBox().getCenter().subtract(player.getEyePosition()).normalize();
+                if (viewVector.dot(playerToMob) > 0.5) { // 弓箭的准星容错率放大
+                    isRangedThreat = true;
+                }
+            }
         }
 
+        // 3. 雷达扫描：如果玩家没有拿弓，但有正在飞行的箭矢靠近 (8格内)
+        if (!isRangedThreat) {
+            List<Projectile> projectiles = mob.level().getEntitiesOfClass(Projectile.class, mob.getBoundingBox().inflate(8.0D));
+            for (Projectile p : projectiles) {
+                if (p.getDeltaMovement().lengthSqr() > 0.05) { // 只要有实体在快速飞行
+                    isRangedThreat = true;
+                    break;
+                }
+            }
+        }
+
+        // ================= 战术应对决策 =================
         if (holdsAxe) {
             if (mob.isUsingItem()) mob.releaseUsingItem();
             mob.getNavigation().moveTo(target, speedModifier * 1.3);
         } 
         else if (isSwingingAtMe) {
             mob.startUsingItem(InteractionHand.OFF_HAND);
-            mob.getNavigation().stop();
+            mob.getNavigation().stop(); // 面对近战劈砍，停下脚步稳固举盾
             shieldHoldTimer = 10; 
         } 
+        else if (isRangedThreat) {
+            // ★ 面对远程火力，举起盾牌，并顶着箭雨慢速向玩家压迫
+            mob.startUsingItem(InteractionHand.OFF_HAND);
+            mob.getNavigation().moveTo(target, speedModifier * 0.5); 
+            shieldHoldTimer = 10;
+        }
         else {
             if (shieldHoldTimer > 0) {
                 shieldHoldTimer--;
@@ -95,15 +132,13 @@ public class HostileAdvancedCombatGoal extends Goal {
             comboCount = 0;
         }
 
-        // ★ 获取水平和垂直差，识别高低差逃课
         double horizDist = Math.sqrt(Math.pow(mob.getX() - target.getX(), 2) + Math.pow(mob.getZ() - target.getZ(), 2));
         double yDiff = target.getY() - mob.getY();
 
-        // 判定条件：正常距离内，或者垂直悬空在头顶 (水平近，高度高)
         if (attackCooldown <= 0 && (distSqr <= 16.0 || (horizDist <= 4.0 && yDiff > 1.0 && yDiff < 6.0))) {
-            if (mob.isUsingItem()) mob.releaseUsingItem(); 
+            if (mob.isUsingItem()) mob.releaseUsingItem(); // 攻击瞬间必定放下盾牌
             
-            // ★ 防空起飞连击
+            // 防空起飞连击
             if (yDiff > 1.5 && mob.onGround()) {
                 Vec3 leap = target.position().subtract(mob.position()).normalize().scale(0.4);
                 mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.3 + 0.2, 1.5), leap.z); 
@@ -112,13 +147,12 @@ public class HostileAdvancedCombatGoal extends Goal {
                 mob.doHurtTarget(target);
                 mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
             } else {
-                // 常规地面挥砍
+                // 常规连击
                 mob.swing(InteractionHand.MAIN_HAND);
                 mob.doHurtTarget(target);
                 mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
             }
 
-            // 突进粘人
             Vec3 lunge = target.position().subtract(mob.position()).normalize().scale(0.25);
             mob.setDeltaMovement(mob.getDeltaMovement().add(lunge.x, 0, lunge.z));
 
