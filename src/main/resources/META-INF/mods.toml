@@ -1,9 +1,0 @@
-modLoader="javafml"
-loaderVersion="[51,)"
-license="All Rights Reserved"
-
-[[mods]]
-modId="bipedraidermod"
-version="1.0.0"
-displayName="Biped Raider Mod"
-description="Custom biped raider with advanced tactical AI."
