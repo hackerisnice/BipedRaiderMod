@@ -3,6 +3,7 @@ package com.yourmod;
 import com.yourmod.block.HeartBlock;
 import com.yourmod.entity.CustomBipedEntity;
 import com.yourmod.entity.FriendlyBipedEntity;
+import com.yourmod.registry.ModEntities; // 导入实体注册类
 import com.yourmod.util.IEntityDataSaver;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -19,16 +20,13 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LightningBolt;
-import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.SpawnPlacementTypes;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.entity.monster.Monster;
-import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -39,7 +37,6 @@ public class BipedRaiderMod implements ModInitializer {
 
     public static final String MODID = "bipedraidermod";
 
-    // 1.21 注册方块和物品
     public static final Block HEART_BLOCK = Registry.register(
             BuiltInRegistries.BLOCK, ResourceLocation.parse(MODID + ":heart_block"),
             new HeartBlock(BlockBehaviour.Properties.ofFullCopy(Blocks.STONE).strength(3.0F))
@@ -49,21 +46,19 @@ public class BipedRaiderMod implements ModInitializer {
             new BlockItem(HEART_BLOCK, new Item.Properties())
     );
 
-    // 1.21 注册实体
-    public static final EntityType<CustomBipedEntity> CUSTOM_BIPED = Registry.register(
-            BuiltInRegistries.ENTITY_TYPE, ResourceLocation.parse(MODID + ":custom_biped"),
-            EntityType.Builder.of(CustomBipedEntity::new, MobCategory.MONSTER).sized(0.6F, 1.8F).clientTrackingRange(64).build("custom_biped")
-    );
-    public static final EntityType<FriendlyBipedEntity> FRIENDLY_BIPED = Registry.register(
-            BuiltInRegistries.ENTITY_TYPE, ResourceLocation.parse(MODID + ":friendly_biped"),
-            EntityType.Builder.of(FriendlyBipedEntity::new, MobCategory.CREATURE).sized(0.6F, 1.8F).clientTrackingRange(64).build("friendly_biped")
-    );
-
     @Override
     public void onInitialize() {
-        FabricDefaultAttributeRegistry.register(CUSTOM_BIPED, CustomBipedEntity.createAttributes());
-        FabricDefaultAttributeRegistry.register(FRIENDLY_BIPED, FriendlyBipedEntity.createAttributes());
-        SpawnPlacements.register(CUSTOM_BIPED, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
+        // 1. 触发实体注册
+        ModEntities.register();
+
+        // 2. 注册属性
+        FabricDefaultAttributeRegistry.register(ModEntities.CUSTOM_BIPED, CustomBipedEntity.createAttributes());
+        FabricDefaultAttributeRegistry.register(ModEntities.FRIENDLY_BIPED, FriendlyBipedEntity.createAttributes());
+        
+        // 3. 注册生成条件
+        SpawnPlacements.register(ModEntities.CUSTOM_BIPED, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
+        
+        // 4. 事件监听
         registerEvents();
     }
 
@@ -115,7 +110,7 @@ public class BipedRaiderMod implements ModInitializer {
                 level.destroyBlock(pos, false);
                 ((IEntityDataSaver) player).getPersistentData().remove("PlacedHeartBlockPos");
 
-                FriendlyBipedEntity aiko = FRIENDLY_BIPED.create(level);
+                FriendlyBipedEntity aiko = ModEntities.FRIENDLY_BIPED.create(level);
                 if (aiko != null) {
                     aiko.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, player.getYRot(), player.getXRot());
                     aiko.tame(player);
