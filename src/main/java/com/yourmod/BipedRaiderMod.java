@@ -3,11 +3,16 @@ package com.yourmod;
 import com.yourmod.block.HeartBlock;
 import com.yourmod.entity.CustomBipedEntity;
 import com.yourmod.entity.FriendlyBipedEntity;
-import com.yourmod.client.renderer.CustomBipedRenderer;
-import com.yourmod.client.renderer.FriendlyBipedRenderer;
-import net.minecraft.client.renderer.entity.EntityRenderers;
+import com.yourmod.util.IEntityDataSaver;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionResult;
@@ -15,8 +20,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.MobCategory;
-import net.minecraft.world.entity.SpawnPlacementTypes;
-import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
@@ -28,176 +32,108 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.entity.EntityAttributeCreationEvent;
-import net.minecraftforge.event.entity.SpawnPlacementRegisterEvent;
-import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.entity.player.PlayerInteractEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.ForgeRegistries;
-import net.minecraftforge.registries.RegistryObject;
 
-@Mod("bipedraidermod")
-public class BipedRaiderMod {
+public class BipedRaiderMod implements ModInitializer {
 
     public static final String MODID = "bipedraidermod";
 
-    public static final DeferredRegister<EntityType<?>> ENTITIES = DeferredRegister.create(ForgeRegistries.ENTITY_TYPES, MODID);
-    
-    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, MODID);
-    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
+    // 1. 注册方块和物品
+    public static final Block HEART_BLOCK = Registry.register(
+            BuiltInRegistries.BLOCK, new ResourceLocation(MODID, "heart_block"),
+            new HeartBlock(BlockBehaviour.Properties.of().strength(3.0F).requiresCorrectToolForDrops())
+    );
+    public static final Item HEART_BLOCK_ITEM = Registry.register(
+            BuiltInRegistries.ITEM, new ResourceLocation(MODID, "heart_block"),
+            new BlockItem(HEART_BLOCK, new Item.Properties())
+    );
 
-    public static final RegistryObject<Block> HEART_BLOCK = BLOCKS.register("heart_block", () -> new HeartBlock(BlockBehaviour.Properties.of().strength(3.0F).requiresCorrectToolForDrops()));
-    public static final RegistryObject<Item> HEART_BLOCK_ITEM = ITEMS.register("heart_block", () -> new BlockItem(HEART_BLOCK.get(), new Item.Properties()));
+    // 2. 注册实体
+    public static final EntityType<CustomBipedEntity> CUSTOM_BIPED = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE, new ResourceLocation(MODID, "custom_biped"),
+            EntityType.Builder.of(CustomBipedEntity::new, MobCategory.MONSTER).sized(0.6F, 1.8F).clientTrackingRange(64).build("custom_biped")
+    );
+    public static final EntityType<FriendlyBipedEntity> FRIENDLY_BIPED = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE, new ResourceLocation(MODID, "friendly_biped"),
+            EntityType.Builder.of(FriendlyBipedEntity::new, MobCategory.CREATURE).sized(0.6F, 1.8F).clientTrackingRange(64).build("friendly_biped")
+    );
 
-    public static final RegistryObject<EntityType<CustomBipedEntity>> CUSTOM_BIPED =
-            ENTITIES.register("custom_biped", () -> EntityType.Builder
-                    .of(CustomBipedEntity::new, MobCategory.MONSTER)
-                    .sized(0.6F, 1.8F)
-                    .clientTrackingRange(64)
-                    .build("custom_biped"));
+    @Override
+    public void onInitialize() {
+        // 3. 注册实体属性
+        FabricDefaultAttributeRegistry.register(CUSTOM_BIPED, CustomBipedEntity.createAttributes());
+        FabricDefaultAttributeRegistry.register(FRIENDLY_BIPED, FriendlyBipedEntity.createAttributes());
 
-    public static final RegistryObject<EntityType<FriendlyBipedEntity>> FRIENDLY_BIPED =
-            ENTITIES.register("friendly_biped", () -> EntityType.Builder
-                    .of(FriendlyBipedEntity::new, MobCategory.CREATURE)
-                    .sized(0.6F, 1.8F)
-                    .clientTrackingRange(64)
-                    .build("friendly_biped"));
+        // 4. 注册生成规则
+        SpawnPlacements.register(CUSTOM_BIPED, SpawnPlacements.Type.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
 
-    public BipedRaiderMod() {
-        IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
-        ENTITIES.register(modBus);
-        BLOCKS.register(modBus);
-        ITEMS.register(modBus);
-        
-        modBus.addListener(this::onClientSetup);
-        modBus.addListener(this::onAttributeCreate);
-        modBus.addListener(this::registerSpawnPlacements);
-        MinecraftForge.EVENT_BUS.register(this);
+        // 5. 注册 Fabric 事件机制
+        registerEvents();
     }
 
-    private void onClientSetup(FMLClientSetupEvent event) {
-        EntityRenderers.register(CUSTOM_BIPED.get(), CustomBipedRenderer::new);
-        EntityRenderers.register(FRIENDLY_BIPED.get(), FriendlyBipedRenderer::new); 
-    }
-
-    private void onAttributeCreate(EntityAttributeCreationEvent event) {
-        event.put(CUSTOM_BIPED.get(), Monster.createMonsterAttributes()
-                .add(Attributes.MAX_HEALTH, 40.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.3D)
-                .add(Attributes.ATTACK_DAMAGE, 4.0D)
-                .add(Attributes.FOLLOW_RANGE, 64.0D)
-                .add(Attributes.ARMOR, 2.0D)
-                .build());
-                
-        event.put(FRIENDLY_BIPED.get(), Monster.createMonsterAttributes()
-                .add(Attributes.MAX_HEALTH, 80.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.35D) 
-                .add(Attributes.ATTACK_DAMAGE, 6.0D)
-                .add(Attributes.FOLLOW_RANGE, 64.0D)
-                .add(Attributes.ARMOR, 4.0D)
-                .build());
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private void registerSpawnPlacements(SpawnPlacementRegisterEvent event) {
-        event.register(
-                CUSTOM_BIPED.get(),
-                SpawnPlacementTypes.ON_GROUND,
-                Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                (type, level, spawnType, pos, random) -> Monster.checkMonsterSpawnRules((EntityType) type, level, spawnType, pos, random),
-                SpawnPlacementRegisterEvent.Operation.OR
-        );
-    }
-
-    @Mod.EventBusSubscriber(modid = BipedRaiderMod.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
-    public static class PetEventHandler {
-        
-        @SubscribeEvent
-        public static void onPlayerRespawn(PlayerEvent.PlayerRespawnEvent event) {
-            if (event.getEntity() instanceof net.minecraft.server.level.ServerPlayer player) {
-                net.minecraft.server.level.ServerLevel serverLevel = player.serverLevel();
-                for (net.minecraft.world.entity.Entity entity : serverLevel.getAllEntities()) {
-                    if (entity instanceof FriendlyBipedEntity pet && player.getUUID().equals(pet.getOwnerUUID())) {
-                        pet.teleportTo(player.getX(), player.getY(), player.getZ());
-                    }
+    private void registerEvents() {
+        // 重生强制拉回保镖
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            net.minecraft.server.level.ServerLevel serverLevel = newPlayer.serverLevel();
+            for (net.minecraft.world.entity.Entity entity : serverLevel.getAllEntities()) {
+                if (entity instanceof FriendlyBipedEntity pet && newPlayer.getUUID().equals(pet.getOwnerUUID())) {
+                    pet.teleportTo(newPlayer.getX(), newPlayer.getY(), newPlayer.getZ());
                 }
             }
-        }
+        });
 
-        @SubscribeEvent
-        public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
-            Level level = event.getLevel();
-            Player player = event.getEntity();
-            BlockPos pos = event.getPos();
-            ItemStack item = event.getItemStack();
+        // 五雷轰顶复活仪式
+        UseBlockCallback.EVENT.register((player, level, hand, hitResult) -> {
+            BlockPos pos = hitResult.getBlockPos();
+            ItemStack item = player.getItemInHand(hand);
 
-            if (level.getBlockState(pos).is(HEART_BLOCK.get()) && item.is(Items.BEACON)) {
-                if (event.getFace() == Direction.UP) {
-                    if (level.isClientSide) {
-                        event.setCanceled(true);
-                        event.setCancellationResult(InteractionResult.SUCCESS);
-                        return;
-                    }
+            if (level.getBlockState(pos).is(HEART_BLOCK) && item.is(Items.BEACON) && hitResult.getDirection() == Direction.UP) {
+                if (level.isClientSide) return InteractionResult.SUCCESS;
 
-                    boolean alreadyHasAiko = false;
-                    if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                        for (net.minecraft.world.entity.Entity e : serverLevel.getAllEntities()) {
-                            if (e instanceof FriendlyBipedEntity aiko && player.getUUID().equals(aiko.getOwnerUUID())) {
-                                alreadyHasAiko = true;
-                                break;
-                            }
+                boolean alreadyHasAiko = false;
+                if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    for (net.minecraft.world.entity.Entity e : serverLevel.getAllEntities()) {
+                        if (e instanceof FriendlyBipedEntity aiko && player.getUUID().equals(aiko.getOwnerUUID())) {
+                            alreadyHasAiko = true;
+                            break;
                         }
                     }
-
-                    if (alreadyHasAiko) {
-                        player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§c你已经有一位保镖了，无法再复活更多！"));
-                        event.setCanceled(true);
-                        event.setCancellationResult(InteractionResult.FAIL);
-                        return;
-                    }
-
-                    if (!player.isCreative()) {
-                        item.shrink(1);
-                    }
-
-                    // ★ 核心特效演出：五雷轰顶仪式
-                    if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
-                        for (int i = 0; i < 5; i++) {
-                            LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(serverLevel);
-                            if (lightning != null) {
-                                lightning.moveTo(Vec3.atBottomCenterOf(pos));
-                                // 设置为纯视觉闪电，防止伤人或破坏掉落物/方块
-                                lightning.setVisualOnly(true); 
-                                serverLevel.addFreshEntity(lightning);
-                            }
-                        }
-                    }
-
-                    level.destroyBlock(pos, false);
-                    player.getPersistentData().remove("PlacedHeartBlockPos");
-
-                    FriendlyBipedEntity aiko = FRIENDLY_BIPED.get().create(level);
-                    if (aiko != null) {
-                        aiko.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, player.getYRot(), player.getXRot());
-                        aiko.tame(player);
-                        aiko.setCustomName(net.minecraft.network.chat.Component.literal("Aiko"));
-                        aiko.setCustomNameVisible(true);
-                        aiko.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
-                        level.addFreshEntity(aiko);
-                        
-                        level.playSound(null, pos, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0F, 1.0F);
-                    }
-                    
-                    event.setCanceled(true);
-                    event.setCancellationResult(InteractionResult.SUCCESS);
                 }
+
+                if (alreadyHasAiko) {
+                    player.sendSystemMessage(net.minecraft.network.chat.Component.literal("§c你已经有一位保镖了，无法再复活更多！"));
+                    return InteractionResult.FAIL;
+                }
+
+                if (!player.isCreative()) item.shrink(1);
+
+                if (level instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    for (int i = 0; i < 5; i++) {
+                        LightningBolt lightning = EntityType.LIGHTNING_BOLT.create(serverLevel);
+                        if (lightning != null) {
+                            lightning.moveTo(Vec3.atBottomCenterOf(pos));
+                            lightning.setVisualOnly(true);
+                            serverLevel.addFreshEntity(lightning);
+                        }
+                    }
+                }
+
+                level.destroyBlock(pos, false);
+                // ★ 接入 Mixin 数据
+                ((IEntityDataSaver) player).getPersistentData().remove("PlacedHeartBlockPos");
+
+                FriendlyBipedEntity aiko = FRIENDLY_BIPED.create(level);
+                if (aiko != null) {
+                    aiko.moveTo(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5, player.getYRot(), player.getXRot());
+                    aiko.tame(player);
+                    aiko.setCustomName(net.minecraft.network.chat.Component.literal("Aiko"));
+                    aiko.setCustomNameVisible(true);
+                    aiko.setItemSlot(EquipmentSlot.OFFHAND, new ItemStack(Items.SHIELD));
+                    level.addFreshEntity(aiko);
+                    level.playSound(null, pos, SoundEvents.BEACON_ACTIVATE, SoundSource.PLAYERS, 1.0F, 1.0F);
+                }
+                return InteractionResult.SUCCESS;
             }
-        }
+            return InteractionResult.PASS;
+        });
     }
 }
