@@ -1,20 +1,34 @@
 package com.yourmod.registry;
 
-// 1. 导入你的主类，以便访问 BipedRaiderMod.CUSTOM_BIPED
 import com.yourmod.BipedRaiderMod;
-
-// 2. 导入你的自定义实体类
 import com.yourmod.entity.CustomBipedEntity;
-
-// 3. 导入 Minecraft 原版的 EntityType
+import com.yourmod.entity.FriendlyBipedEntity;
+import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
-
-// 4. 导入 Forge 的 RegistryObject
-import net.minecraftforge.registries.RegistryObject;
+import net.minecraft.world.entity.MobCategory;
 
 public class ModEntities {
-    
-    public static final RegistryObject<EntityType<CustomBipedEntity>> CUSTOM_BIPED = BipedRaiderMod.CUSTOM_BIPED;
 
-    // 如果你有其他的实体注册代码，可以继续写在这里
+    public static final EntityType<CustomBipedEntity> CUSTOM_BIPED = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE, 
+            ResourceLocation.parse(BipedRaiderMod.MODID + ":custom_biped"),
+            EntityType.Builder.of(CustomBipedEntity::new, MobCategory.MONSTER)
+                    .sized(0.6F, 1.8F)
+                    .clientTrackingRange(64)
+                    .build("custom_biped")
+    );
+
+    public static final EntityType<FriendlyBipedEntity> FRIENDLY_BIPED = Registry.register(
+            BuiltInRegistries.ENTITY_TYPE, 
+            ResourceLocation.parse(BipedRaiderMod.MODID + ":friendly_biped"),
+            EntityType.Builder.of(FriendlyBipedEntity::new, MobCategory.CREATURE)
+                    .sized(0.6F, 1.8F)
+                    .clientTrackingRange(64)
+                    .build("friendly_biped")
+    );
+
+    // 调用此方法以触发类的静态初始化
+    public static void register() {}
 }
