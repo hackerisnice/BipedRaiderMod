@@ -3,9 +3,12 @@ package com.yourmod;
 import com.yourmod.block.HeartBlock;
 import com.yourmod.entity.CustomBipedEntity;
 import com.yourmod.entity.FriendlyBipedEntity;
-import com.yourmod.registry.ModEntities; // 导入实体注册类
+import com.yourmod.registry.ModEntities;
 import com.yourmod.util.IEntityDataSaver;
 import net.fabricmc.api.ModInitializer;
+// ★ 新增：Fabric 生物群系修改 API
+import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
+import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -48,17 +51,26 @@ public class BipedRaiderMod implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        // 1. 触发实体注册
         ModEntities.register();
 
-        // 2. 注册属性
         FabricDefaultAttributeRegistry.register(ModEntities.CUSTOM_BIPED, CustomBipedEntity.createAttributes());
         FabricDefaultAttributeRegistry.register(ModEntities.FRIENDLY_BIPED, FriendlyBipedEntity.createAttributes());
         
-        // 3. 注册生成条件
         SpawnPlacements.register(ModEntities.CUSTOM_BIPED, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
         
-        // 4. 事件监听
+        // ==========================================
+        // ★ 核心修复：将怪物加入主世界的自然刷新池
+        // ==========================================
+        BiomeModifications.addSpawn(
+                BiomeSelectors.foundInOverworld(), // 刷新范围：整个主世界
+                net.minecraft.world.entity.MobCategory.MONSTER, // 怪物分类（占敌对生物上限）
+                ModEntities.CUSTOM_BIPED, // 我们的实体
+                30, // 权重：僵尸是100，小白是100，女巫是5。30是一个属于“精英怪”的适中概率
+                1,  // 最小集群数量：每次最少刷 1 只
+                1   // 最大集群数量：每次最多刷 1 只 (防止几只 Boss 一起上来把你秒了)
+        );
+        // ==========================================
+
         registerEvents();
     }
 
