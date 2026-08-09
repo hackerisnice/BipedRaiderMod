@@ -131,7 +131,7 @@ public class HostileAdvancedCombatGoal extends Goal {
                 Vec3 leap = target.position().subtract(mob.position()).normalize().scale(0.5);
                 mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.35 + 0.5, 2.0), leap.z); 
                 
-                // ★ 修复：拆包所有音效
+                // ★ 风弹需要保留拆包
                 mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
                 if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                     serverLevel.sendParticles(ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
@@ -139,11 +139,13 @@ public class HostileAdvancedCombatGoal extends Goal {
                 
                 mob.swing(InteractionHand.MAIN_HAND);
                 mob.doHurtTarget(target);
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
+                // ★ 挥剑音效移除拆包
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
             } else {
                 mob.swing(InteractionHand.MAIN_HAND);
                 mob.doHurtTarget(target);
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
+                // ★ 挥剑音效移除拆包
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
             }
 
             Vec3 lunge = target.position().subtract(mob.position()).normalize().scale(0.25);
