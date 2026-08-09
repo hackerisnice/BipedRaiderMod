@@ -52,15 +52,12 @@ public class EscapeBoatAndBuildUpGoal extends Goal {
         mob.getNavigation().stop();
         mob.setDeltaMovement(0, mob.getDeltaMovement().y, 0);
 
-        // ★ 风弹爆破起跳！
         if (mob.onGround() && jumpTick == 0) {
-            // 施加巨大的风弹垂直推力
             mob.setDeltaMovement(0, 1.2, 0);
             
-            // 播放 1.21 真正的风弹爆炸音效
-            mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST, SoundSource.HOSTILE, 1.0F, 1.0F);
+            // ★ 修复：使用 .value() 拆包音效
+            mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
             
-            // 生成风弹爆炸粒子
             if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                 serverLevel.sendParticles(ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
             }
@@ -70,7 +67,6 @@ public class EscapeBoatAndBuildUpGoal extends Goal {
         else if (jumpTick > 0) {
             jumpTick++;
             
-            // 风弹起跳速度极快，我们在第 4 刻就能垫方块了
             if (jumpTick >= 4) {
                 BlockPos posBelow = BlockPos.containing(mob.getX(), mob.getY() - 0.2, mob.getZ());
                 
