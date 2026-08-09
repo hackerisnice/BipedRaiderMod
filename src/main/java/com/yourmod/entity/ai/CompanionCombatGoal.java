@@ -97,8 +97,8 @@ public class CompanionCombatGoal extends Goal {
                     target.hurt(mob.damageSources().mobAttack(mob), baseDmg + (Math.min(maxFallDistance, 20) * 1.5f));
                 }
                 
-                // ★ 拆包
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.MACE_SMASH_GROUND.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
+                // ★ 砸地音效移除拆包
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.MACE_SMASH_GROUND, SoundSource.HOSTILE, 1.0F, 1.0F);
             }
             mob.restoreMainHandItem();
             isMaceAttacking = false;
@@ -143,8 +143,8 @@ public class CompanionCombatGoal extends Goal {
                 arrow.setBaseDamage(isDragon ? 7.0 : 4.0); 
                 
                 mob.level().addFreshEntity(arrow);
-                // ★ 拆包
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.ARROW_SHOOT.value(), SoundSource.NEUTRAL, 1.0F, 1.0F);
+                // ★ 射箭音效移除拆包
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.NEUTRAL, 1.0F, 1.0F);
                 
                 attackCooldown = 30; 
             }
@@ -176,7 +176,7 @@ public class CompanionCombatGoal extends Goal {
                     Vec3 leap = aimEntity.position().subtract(mob.position()).normalize().scale(0.5);
                     mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.35 + 0.5, 2.0), leap.z); 
                     
-                    // ★ 拆包
+                    // ★ 风弹保留拆包
                     mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.NEUTRAL, 1.0F, 1.0F);
                     if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                         serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
@@ -190,8 +190,8 @@ public class CompanionCombatGoal extends Goal {
                     } else {
                         target.hurt(mob.damageSources().mobAttack(mob), baseDmg * 1.5F);
                     }
-                    // ★ 拆包
-                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT.value(), SoundSource.NEUTRAL, 1.0F, 1.0F);
+                    // ★ 暴击音效移除拆包
+                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
                     attackCooldown = 20;
                 }
                 else if (mob.onGround() && !waitingForCrit) {
@@ -207,8 +207,8 @@ public class CompanionCombatGoal extends Goal {
                     } else {
                         target.hurt(mob.damageSources().mobAttack(mob), baseDmg * 1.5F);
                     }
-                    // ★ 拆包
-                    mob.level().playSound(null, aimEntity.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT.value(), SoundSource.NEUTRAL, 1.0F, 1.0F);
+                    // ★ 暴击音效移除拆包
+                    mob.level().playSound(null, aimEntity.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
                     
                     waitingForCrit = false;
                     attackCooldown = 20; 
