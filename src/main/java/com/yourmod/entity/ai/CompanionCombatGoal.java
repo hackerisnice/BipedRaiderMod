@@ -174,11 +174,16 @@ public class CompanionCombatGoal extends Goal {
             if (attackCooldown <= 0 && (distSqr <= meleeTriggerDist || (horizDist <= 4.0 && yDiff > 1.0 && yDiff < 6.0))) {
                 if (mob.isUsingItem()) mob.releaseUsingItem();
                 
-                // ★ 升龙斩 (Anti-Air Leap)：目标在上方，直接拔地而起
+                // ★ 升龙斩 (Anti-Air Leap)：目标在上方，脚底直接引爆风弹
                 if (yDiff > 1.5 && mob.onGround()) {
-                    Vec3 leap = aimEntity.position().subtract(mob.position()).normalize().scale(0.4);
-                    // 动态计算起跳高度，赋予强劲的 Y 轴速度
-                    mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.3 + 0.2, 1.5), leap.z); 
+                    Vec3 leap = aimEntity.position().subtract(mob.position()).normalize().scale(0.5);
+                    mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.35 + 0.5, 2.0), leap.z); 
+                    
+                    // 播放风弹音效与粒子
+                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                    if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                        serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
+                    }
                     
                     mob.swing(InteractionHand.MAIN_HAND);
                     float baseDmg = (float) mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
@@ -191,6 +196,7 @@ public class CompanionCombatGoal extends Goal {
                     mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
                     attackCooldown = 20;
                 }
+
                 // 常规地面跳劈
                 else if (mob.onGround() && !waitingForCrit) {
                     mob.jumpFromGround();
