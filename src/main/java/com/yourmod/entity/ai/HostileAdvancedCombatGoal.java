@@ -15,6 +15,7 @@ import net.minecraft.world.item.TridentItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.core.particles.ParticleTypes;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -61,58 +62,49 @@ public class HostileAdvancedCombatGoal extends Goal {
 
         boolean holdsAxe = false;
         boolean isSwingingAtMe = false;
-        boolean isRangedThreat = false; // ★ 新增：远程威胁警报
+        boolean isRangedThreat = false; 
 
         if (target instanceof Player player) {
             ItemStack playerItem = player.getMainHandItem();
             holdsAxe = playerItem.getItem() instanceof AxeItem;
             boolean holdsSword = playerItem.getItem() instanceof SwordItem;
 
-            // 1. 判定玩家挥剑
             if (holdsSword && player.swingTime > 0) {
                 Vec3 viewVector = player.getViewVector(1.0F).normalize();
                 Vec3 playerToMob = mob.getBoundingBox().getCenter().subtract(player.getEyePosition()).normalize();
-                if (viewVector.dot(playerToMob) > 0.8) {
-                    isSwingingAtMe = true;
-                }
+                if (viewVector.dot(playerToMob) > 0.8) isSwingingAtMe = true;
             }
             
-            // 2. 判定玩家正在拉弓/拉弩/蓄力三叉戟，且准星对准了 Boss
             if (player.isUsingItem() && (player.getUseItem().getItem() instanceof BowItem || 
                 player.getUseItem().getItem() instanceof CrossbowItem || 
                 player.getUseItem().getItem() instanceof TridentItem)) {
                 
                 Vec3 viewVector = player.getViewVector(1.0F).normalize();
                 Vec3 playerToMob = mob.getBoundingBox().getCenter().subtract(player.getEyePosition()).normalize();
-                if (viewVector.dot(playerToMob) > 0.5) { // 弓箭的准星容错率放大
-                    isRangedThreat = true;
-                }
+                if (viewVector.dot(playerToMob) > 0.5) isRangedThreat = true;
             }
         }
 
-        // 3. 雷达扫描：如果玩家没有拿弓，但有正在飞行的箭矢靠近 (8格内)
         if (!isRangedThreat) {
             List<Projectile> projectiles = mob.level().getEntitiesOfClass(Projectile.class, mob.getBoundingBox().inflate(8.0D));
             for (Projectile p : projectiles) {
-                if (p.getDeltaMovement().lengthSqr() > 0.05) { // 只要有实体在快速飞行
+                if (p.getDeltaMovement().lengthSqr() > 0.05) {
                     isRangedThreat = true;
                     break;
                 }
             }
         }
 
-        // ================= 战术应对决策 =================
         if (holdsAxe) {
             if (mob.isUsingItem()) mob.releaseUsingItem();
             mob.getNavigation().moveTo(target, speedModifier * 1.3);
         } 
         else if (isSwingingAtMe) {
             mob.startUsingItem(InteractionHand.OFF_HAND);
-            mob.getNavigation().stop(); // 面对近战劈砍，停下脚步稳固举盾
+            mob.getNavigation().stop(); 
             shieldHoldTimer = 10; 
         } 
         else if (isRangedThreat) {
-            // ★ 面对远程火力，举起盾牌，并顶着箭雨慢速向玩家压迫
             mob.startUsingItem(InteractionHand.OFF_HAND);
             mob.getNavigation().moveTo(target, speedModifier * 0.5); 
             shieldHoldTimer = 10;
@@ -127,27 +119,30 @@ public class HostileAdvancedCombatGoal extends Goal {
         }
 
         if (attackCooldown > 0) attackCooldown--;
-
-        if (distSqr > 16.0 && attackCooldown <= 0) {
-            comboCount = 0;
-        }
+        if (distSqr > 16.0 && attackCooldown <= 0) comboCount = 0;
 
         double horizDist = Math.sqrt(Math.pow(mob.getX() - target.getX(), 2) + Math.pow(mob.getZ() - target.getZ(), 2));
         double yDiff = target.getY() - mob.getY();
 
         if (attackCooldown <= 0 && (distSqr <= 16.0 || (horizDist <= 4.0 && yDiff > 1.0 && yDiff < 6.0))) {
-            if (mob.isUsingItem()) mob.releaseUsingItem(); // 攻击瞬间必定放下盾牌
+            if (mob.isUsingItem()) mob.releaseUsingItem(); 
             
-            // 防空起飞连击
+            // ★ 风弹防空起飞！
             if (yDiff > 1.5 && mob.onGround()) {
-                Vec3 leap = target.position().subtract(mob.position()).normalize().scale(0.4);
-                mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.3 + 0.2, 1.5), leap.z); 
+                Vec3 leap = target.position().subtract(mob.position()).normalize().scale(0.5);
+                // 给足向上和向前的物理推力
+                mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.35 + 0.5, 2.0), leap.z); 
+                
+                // 风弹引爆
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST, SoundSource.HOSTILE, 1.0F, 1.0F);
+                if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                    serverLevel.sendParticles(ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
+                }
                 
                 mob.swing(InteractionHand.MAIN_HAND);
                 mob.doHurtTarget(target);
                 mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
             } else {
-                // 常规连击
                 mob.swing(InteractionHand.MAIN_HAND);
                 mob.doHurtTarget(target);
                 mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
