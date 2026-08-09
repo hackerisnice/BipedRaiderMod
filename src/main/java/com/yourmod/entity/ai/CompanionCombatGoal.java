@@ -80,7 +80,6 @@ public class CompanionCombatGoal extends Goal {
             }
         }
 
-        // 高空重锤
         if (!mob.onGround() && !waitingForCrit) { 
             maxFallDistance = Math.max(maxFallDistance, mob.fallDistance);
             if (maxFallDistance > 1.5f && !isMaceAttacking) {
@@ -98,7 +97,8 @@ public class CompanionCombatGoal extends Goal {
                     target.hurt(mob.damageSources().mobAttack(mob), baseDmg + (Math.min(maxFallDistance, 20) * 1.5f));
                 }
                 
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.MACE_SMASH_GROUND, SoundSource.HOSTILE, 1.0F, 1.0F);
+                // ★ 拆包
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.MACE_SMASH_GROUND.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
             }
             mob.restoreMainHandItem();
             isMaceAttacking = false;
@@ -112,11 +112,9 @@ public class CompanionCombatGoal extends Goal {
 
         double bowEngageDist = isDragon ? 256.0 : 64.0;
         
-        // ★ 分离距离计算，用于解决“头顶盲区”
         double horizDist = Math.sqrt(Math.pow(mob.getX() - aimEntity.getX(), 2) + Math.pow(mob.getZ() - aimEntity.getZ(), 2));
         double yDiff = aimEntity.getY() - mob.getY();
         
-        // 如果目标水平距离太远，或者在极高空（且水平也很远），才使用弓箭
         if (horizDist > 8.0 && distSqr > bowEngageDist) { 
             if (mob.isUsingItem()) mob.releaseUsingItem(); 
             
@@ -145,7 +143,8 @@ public class CompanionCombatGoal extends Goal {
                 arrow.setBaseDamage(isDragon ? 7.0 : 4.0); 
                 
                 mob.level().addFreshEntity(arrow);
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.ARROW_SHOOT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                // ★ 拆包
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.ARROW_SHOOT.value(), SoundSource.NEUTRAL, 1.0F, 1.0F);
                 
                 attackCooldown = 30; 
             }
@@ -170,17 +169,15 @@ public class CompanionCombatGoal extends Goal {
 
             double meleeTriggerDist = isDragon ? 36.0 : 16.0;
 
-            // ★ 核心防空解法：如果正常判定在范围内，或者敌人在头顶悬浮（水平很近，高度差在 1~6 格以内），立刻启动近战
             if (attackCooldown <= 0 && (distSqr <= meleeTriggerDist || (horizDist <= 4.0 && yDiff > 1.0 && yDiff < 6.0))) {
                 if (mob.isUsingItem()) mob.releaseUsingItem();
                 
-                // ★ 升龙斩 (Anti-Air Leap)：目标在上方，脚底直接引爆风弹
                 if (yDiff > 1.5 && mob.onGround()) {
                     Vec3 leap = aimEntity.position().subtract(mob.position()).normalize().scale(0.5);
                     mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.35 + 0.5, 2.0), leap.z); 
                     
-                    // 播放风弹音效与粒子
-                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                    // ★ 拆包
+                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.NEUTRAL, 1.0F, 1.0F);
                     if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                         serverLevel.sendParticles(net.minecraft.core.particles.ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
                     }
@@ -193,16 +190,14 @@ public class CompanionCombatGoal extends Goal {
                     } else {
                         target.hurt(mob.damageSources().mobAttack(mob), baseDmg * 1.5F);
                     }
-                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                    // ★ 拆包
+                    mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT.value(), SoundSource.NEUTRAL, 1.0F, 1.0F);
                     attackCooldown = 20;
                 }
-
-                // 常规地面跳劈
                 else if (mob.onGround() && !waitingForCrit) {
                     mob.jumpFromGround();
                     waitingForCrit = true; 
                 } 
-                // 下落处决
                 else if (waitingForCrit && mob.getDeltaMovement().y < 0) {
                     mob.swing(InteractionHand.MAIN_HAND);
                     float baseDmg = (float) mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
@@ -212,7 +207,8 @@ public class CompanionCombatGoal extends Goal {
                     } else {
                         target.hurt(mob.damageSources().mobAttack(mob), baseDmg * 1.5F);
                     }
-                    mob.level().playSound(null, aimEntity.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT, SoundSource.NEUTRAL, 1.0F, 1.0F);
+                    // ★ 拆包
+                    mob.level().playSound(null, aimEntity.blockPosition(), SoundEvents.PLAYER_ATTACK_CRIT.value(), SoundSource.NEUTRAL, 1.0F, 1.0F);
                     
                     waitingForCrit = false;
                     attackCooldown = 20; 
