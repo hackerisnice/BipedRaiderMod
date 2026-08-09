@@ -127,25 +127,23 @@ public class HostileAdvancedCombatGoal extends Goal {
         if (attackCooldown <= 0 && (distSqr <= 16.0 || (horizDist <= 4.0 && yDiff > 1.0 && yDiff < 6.0))) {
             if (mob.isUsingItem()) mob.releaseUsingItem(); 
             
-            // ★ 风弹防空起飞！
             if (yDiff > 1.5 && mob.onGround()) {
                 Vec3 leap = target.position().subtract(mob.position()).normalize().scale(0.5);
-                // 给足向上和向前的物理推力
                 mob.setDeltaMovement(leap.x, Math.min(yDiff * 0.35 + 0.5, 2.0), leap.z); 
                 
-                // 风弹引爆
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST, SoundSource.HOSTILE, 1.0F, 1.0F);
+                // ★ 修复：拆包所有音效
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
                 if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                     serverLevel.sendParticles(ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
                 }
                 
                 mob.swing(InteractionHand.MAIN_HAND);
                 mob.doHurtTarget(target);
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
             } else {
                 mob.swing(InteractionHand.MAIN_HAND);
                 mob.doHurtTarget(target);
-                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP, SoundSource.HOSTILE, 1.0F, 1.0F);
+                mob.level().playSound(null, mob.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
             }
 
             Vec3 lunge = target.position().subtract(mob.position()).normalize().scale(0.25);
