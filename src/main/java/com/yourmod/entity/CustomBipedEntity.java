@@ -11,6 +11,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
@@ -78,17 +79,46 @@ public class CustomBipedEntity extends Monster {
     @Override
     public void tick() {
         super.tick();
+
+        // ★ 视觉增强：只要腾空，脚底产生 1.21 风弹粒子拖尾
+        if (this.level().isClientSide && !this.onGround()) {
+            for (int i = 0; i < 2; i++) {
+                this.level().addParticle(net.minecraft.core.particles.ParticleTypes.GUST,
+                        this.getX() + (this.random.nextDouble() - 0.5) * 0.8,
+                        this.getY() + this.random.nextDouble() * 0.5,
+                        this.getZ() + (this.random.nextDouble() - 0.5) * 0.8,
+                        0.0, -0.1, 0.0);
+            }
+        }
+        
         if (!this.level().isClientSide && this.isAlive()) {
+            
+            // ★ 镜头逻辑重构：绝对自瞄！让 Replay Mod 拍出来的视角完美无瑕
+            if (this.getTarget() != null) {
+                LivingEntity target = this.getTarget();
+                // 计算三维向量
+                double dx = target.getX() - this.getX();
+                double dy = target.getEyeY() - this.getEyeY(); // 锁定敌方眼睛
+                double dz = target.getZ() - this.getZ();
+                double horizDist = Math.sqrt(dx * dx + dz * dz);
+                
+                // 将向量转换为原版 Minecraft 的 Yaw 和 Pitch
+                float targetYaw = (float)(Math.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
+                float targetPitch = (float)(-(Math.atan2(dy, horizDist) * (180.0 / Math.PI)));
+                
+                // 瞬间锁死全身骨骼
+                this.setYRot(targetYaw);
+                this.setXRot(targetPitch);
+                this.yHeadRot = targetYaw;
+                this.yBodyRot = targetYaw;
+            }
+
+            // 保留反制逃课的碎船机制
             List<Boat> boats = this.level().getEntitiesOfClass(Boat.class, this.getBoundingBox().inflate(1.5D));
             for (Boat boat : boats) {
                 boat.discard();
                 this.level().playSound(null, this.blockPosition(), SoundEvents.ITEM_BREAK, SoundSource.HOSTILE, 1.0F, 1.0F);
             }
-            BlockPos headPos = BlockPos.containing(this.getX(), this.getEyeY(), this.getZ());
-            BlockPos waistPos = BlockPos.containing(this.getX(), this.getY() + 0.5, this.getZ());
-            
-            if (this.level().getBlockState(headPos).blocksMotion()) this.level().destroyBlock(headPos, true, this); 
-            if (this.level().getBlockState(waistPos).blocksMotion()) this.level().destroyBlock(waistPos, true, this); 
         }
     }
 
