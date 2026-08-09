@@ -2,12 +2,15 @@ package com.yourmod.entity.ai;
 
 import com.yourmod.entity.CustomBipedEntity;
 import net.minecraft.core.BlockPos;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.core.particles.ParticleTypes;
 
 import java.util.EnumSet;
 
@@ -15,8 +18,6 @@ public class EscapeBoatAndBuildUpGoal extends Goal {
 
     private final CustomBipedEntity mob;
     private final double speedModifier;
-    
-    // ★ 核心修复：跳跃刻数计时器
     private int jumpTick = 0; 
 
     public EscapeBoatAndBuildUpGoal(CustomBipedEntity mob, double speedModifier) {
@@ -49,21 +50,28 @@ public class EscapeBoatAndBuildUpGoal extends Goal {
         
         mob.getLookControl().setLookAt(target, 30.0F, 30.0F);
         mob.getNavigation().stop();
-        
-        // ★ 核心修复：强制清除水平速度，保证垂直搭高时不乱晃掉下柱子
         mob.setDeltaMovement(0, mob.getDeltaMovement().y, 0);
 
-        // 如果在地上，且计时器为0，立刻起跳
+        // ★ 风弹爆破起跳！
         if (mob.onGround() && jumpTick == 0) {
-            mob.getJumpControl().jump();
+            // 施加巨大的风弹垂直推力
+            mob.setDeltaMovement(0, 1.2, 0);
+            
+            // 播放 1.21 真正的风弹爆炸音效
+            mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST, SoundSource.HOSTILE, 1.0F, 1.0F);
+            
+            // 生成风弹爆炸粒子
+            if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+                serverLevel.sendParticles(ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
+            }
+            
             jumpTick = 1;
         } 
-        // 腾空状态下，每刻递增
         else if (jumpTick > 0) {
             jumpTick++;
             
-            // ★ 完美时机：起跳后的第 6 刻 (约 0.3 秒)，正是处于跳跃弧线的最高点
-            if (jumpTick >= 6) {
+            // 风弹起跳速度极快，我们在第 4 刻就能垫方块了
+            if (jumpTick >= 4) {
                 BlockPos posBelow = BlockPos.containing(mob.getX(), mob.getY() - 0.2, mob.getZ());
                 
                 if (mob.level().getBlockState(posBelow).canBeReplaced()) {
@@ -72,8 +80,6 @@ public class EscapeBoatAndBuildUpGoal extends Goal {
                     mob.level().setBlock(posBelow, Blocks.COBBLESTONE.defaultBlockState(), 3);
                     mob.restoreMainHandItem();
                 }
-                
-                // 垫完方块，重置循环准备下一次起跳
                 jumpTick = 0;
             }
         }
