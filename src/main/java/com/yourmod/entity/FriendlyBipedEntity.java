@@ -42,7 +42,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
         super(type, level);
     }
 
-    // ★ Fabric 1.21 属性注册
     public static AttributeSupplier.Builder createAttributes() {
         return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 80.0D)
@@ -101,7 +100,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
         if (source.getEntity() instanceof Player || source.getEntity() instanceof FriendlyBipedEntity) {
             return false; 
         }
-        // ★ 免疫一切爆炸伤害
         if (source.is(net.minecraft.tags.DamageTypeTags.IS_EXPLOSION)) {
             return false;
         }
@@ -130,6 +128,17 @@ public class FriendlyBipedEntity extends TamableAnimal {
     public void tick() {
         super.tick();
 
+        // ★ 视觉增强：Aiko 腾空时的风弹拖尾粒子
+        if (this.level().isClientSide && !this.onGround()) {
+            for (int i = 0; i < 2; i++) {
+                this.level().addParticle(net.minecraft.core.particles.ParticleTypes.GUST,
+                        this.getX() + (this.random.nextDouble() - 0.5) * 0.8,
+                        this.getY() + this.random.nextDouble() * 0.5,
+                        this.getZ() + (this.random.nextDouble() - 0.5) * 0.8,
+                        0.0, -0.1, 0.0);
+            }
+        }
+
         LivingEntity owner = this.getOwner();
 
         if (owner != null && !this.level().isClientSide && owner.isAlive()) {
@@ -139,12 +148,34 @@ public class FriendlyBipedEntity extends TamableAnimal {
             }
         }
 
-        if (this.getTarget() == null && owner != null) {
-            this.getLookControl().setLookAt(owner, 30.0F, 30.0F);
-        }
-
         if (!this.level().isClientSide) {
-            // MLG 落地水判定
+            
+            // ★ 镜头逻辑重构：Aiko 专用的完美锁定视角
+            LivingEntity target = this.getTarget();
+            if (target != null && target.isAlive()) {
+                double dx = target.getX() - this.getX();
+                double dy = target.getEyeY() - this.getEyeY();
+                double dz = target.getZ() - this.getZ();
+                double horizDist = Math.sqrt(dx * dx + dz * dz);
+                
+                float targetYaw = (float)(Math.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
+                float targetPitch = (float)(-(Math.atan2(dy, horizDist) * (180.0 / Math.PI)));
+                
+                this.setYRot(targetYaw);
+                this.setXRot(targetPitch);
+                this.yHeadRot = targetYaw;
+                this.yBodyRot = targetYaw;
+            } else if (owner != null) {
+                // 如果没有敌人，平时看风景时把头转向主人
+                this.getLookControl().setLookAt(owner, 30.0F, 30.0F);
+            }
+
+            java.util.List<net.minecraft.world.entity.vehicle.Boat> boats = this.level().getEntitiesOfClass(net.minecraft.world.entity.vehicle.Boat.class, this.getBoundingBox().inflate(1.5D));
+            for (net.minecraft.world.entity.vehicle.Boat boat : boats) {
+                boat.discard();
+                this.level().playSound(null, this.blockPosition(), net.minecraft.sounds.SoundEvents.ITEM_BREAK, net.minecraft.sounds.SoundSource.NEUTRAL, 1.0F, 1.0F);
+            }
+
             if (placedWaterPos != null) {
                 waterPickupTimer--;
                 if (waterPickupTimer <= 0 || this.onGround() || this.isInWater()) {
