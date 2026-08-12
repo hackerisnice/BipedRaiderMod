@@ -37,6 +37,9 @@ public class CustomBipedEntity extends Monster {
 
     private int goldenApplesEaten = 0;
     private static final int MAX_APPLES = 5;
+    
+    // ★ 新增：玩家攻击计数器
+    private int playerHitCount = 0;
 
     public CustomBipedEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -104,6 +107,17 @@ public class CustomBipedEntity extends Monster {
         }
     }
 
+    // ★ 新增：重写 hurt 方法，专门统计来自玩家的有效攻击
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        boolean isHurt = super.hurt(source, amount);
+        // 如果受伤成功，且攻击来源是玩家，且自身存活
+        if (isHurt && source.getEntity() instanceof Player && this.isAlive()) {
+            playerHitCount++;
+        }
+        return isHurt;
+    }
+
     @Override
     public void die(DamageSource cause) {
         if (!this.level().isClientSide) {
@@ -152,20 +166,21 @@ public class CustomBipedEntity extends Monster {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
         
-        // ★ 核心替换：装载全新的平地阶梯走搭 AI
-        this.goalSelector.addGoal(2, new WalkBridgeGoal(this, 0.3D)); 
+        // ★ 新增：受击反打绝杀状态机，赋予极高的执行优先级（被挨打3下后立刻触发，打断其他普通动作）
+        this.goalSelector.addGoal(2, new HostileCounterSmashGoal(this)); 
         
-        // 旧的搭高已被移除，直接接上其他陷阱和战斗AI
-        this.goalSelector.addGoal(3, new LavaTrapGoal(this));
-        this.goalSelector.addGoal(4, new HostileCobwebTrapGoal(this));
-        this.goalSelector.addGoal(5, new AxeBreakShieldGoal(this));
-        this.goalSelector.addGoal(6, new ThrowHarmingPotionAtFeetGoal(this));
-        this.goalSelector.addGoal(7, new BreakBlockToReachTargetGoal(this));
-        this.goalSelector.addGoal(8, new EnderPearlTeleportGoal(this));
-        this.goalSelector.addGoal(9, new HostileAdvancedCombatGoal(this, 1.5D));
-        this.goalSelector.addGoal(10, new RandomStrollGoal(this, 0.6D));
-        this.goalSelector.addGoal(11, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(12, new RandomLookAroundGoal(this));
+        // 其余 Goal 优先级依次顺延
+        this.goalSelector.addGoal(3, new WalkBridgeGoal(this, 0.3D)); 
+        this.goalSelector.addGoal(4, new LavaTrapGoal(this));
+        this.goalSelector.addGoal(5, new HostileCobwebTrapGoal(this));
+        this.goalSelector.addGoal(6, new AxeBreakShieldGoal(this));
+        this.goalSelector.addGoal(7, new ThrowHarmingPotionAtFeetGoal(this));
+        this.goalSelector.addGoal(8, new BreakBlockToReachTargetGoal(this));
+        this.goalSelector.addGoal(9, new EnderPearlTeleportGoal(this));
+        this.goalSelector.addGoal(10, new HostileAdvancedCombatGoal(this, 1.5D));
+        this.goalSelector.addGoal(11, new RandomStrollGoal(this, 0.6D));
+        this.goalSelector.addGoal(12, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(13, new RandomLookAroundGoal(this));
         
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
@@ -175,16 +190,22 @@ public class CustomBipedEntity extends Monster {
     public void consumeApple() { goldenApplesEaten++; }
     public void switchMainHandItem(ItemStack newItem) { this.setItemInHand(InteractionHand.MAIN_HAND, newItem); }
     public void restoreMainHandItem() { this.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.DIAMOND_SWORD)); }
+    
+    // ★ 暴露给 Goal 用的获取和重置计数器方法
+    public int getPlayerHitCount() { return playerHitCount; }
+    public void resetPlayerHitCount() { playerHitCount = 0; }
 
     @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         tag.putInt("GoldenApplesEaten", this.goldenApplesEaten);
+        tag.putInt("PlayerHitCount", this.playerHitCount); // ★ 保存玩家攻击计数
     }
 
     @Override
     public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         if (tag.contains("GoldenApplesEaten")) this.goldenApplesEaten = tag.getInt("GoldenApplesEaten");
+        if (tag.contains("PlayerHitCount")) this.playerHitCount = tag.getInt("PlayerHitCount"); // ★ 读取玩家攻击计数
     }
 }
