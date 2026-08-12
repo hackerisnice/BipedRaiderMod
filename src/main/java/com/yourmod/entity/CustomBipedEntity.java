@@ -29,7 +29,6 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.DifficultyInstance;
 import org.jetbrains.annotations.Nullable;
 import java.util.List;
@@ -60,7 +59,7 @@ public class CustomBipedEntity extends Monster {
     }
 
     @Override
-    public void makeStuckInBlock(BlockState state, Vec3 multiplier) {
+    public void makeStuckInBlock(BlockState state, net.minecraft.world.phys.Vec3 multiplier) {
         if (!state.is(Blocks.COBWEB)) {
             super.makeStuckInBlock(state, multiplier);
         }
@@ -80,40 +79,23 @@ public class CustomBipedEntity extends Monster {
     public void tick() {
         super.tick();
 
-        // ★ 视觉增强：只要腾空，脚底产生 1.21 风弹粒子拖尾
-        if (this.level().isClientSide && !this.onGround()) {
-            for (int i = 0; i < 2; i++) {
-                this.level().addParticle(net.minecraft.core.particles.ParticleTypes.GUST,
-                        this.getX() + (this.random.nextDouble() - 0.5) * 0.8,
-                        this.getY() + this.random.nextDouble() * 0.5,
-                        this.getZ() + (this.random.nextDouble() - 0.5) * 0.8,
-                        0.0, -0.1, 0.0);
-            }
-        }
-        
         if (!this.level().isClientSide && this.isAlive()) {
-            
-            // ★ 镜头逻辑重构：绝对自瞄！让 Replay Mod 拍出来的视角完美无瑕
             if (this.getTarget() != null) {
                 LivingEntity target = this.getTarget();
-                // 计算三维向量
                 double dx = target.getX() - this.getX();
-                double dy = target.getEyeY() - this.getEyeY(); // 锁定敌方眼睛
+                double dy = target.getEyeY() - this.getEyeY(); 
                 double dz = target.getZ() - this.getZ();
                 double horizDist = Math.sqrt(dx * dx + dz * dz);
                 
-                // 将向量转换为原版 Minecraft 的 Yaw 和 Pitch
                 float targetYaw = (float)(Math.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0F;
                 float targetPitch = (float)(-(Math.atan2(dy, horizDist) * (180.0 / Math.PI)));
                 
-                // 瞬间锁死全身骨骼
                 this.setYRot(targetYaw);
                 this.setXRot(targetPitch);
                 this.yHeadRot = targetYaw;
                 this.yBodyRot = targetYaw;
             }
 
-            // 保留反制逃课的碎船机制
             List<Boat> boats = this.level().getEntitiesOfClass(Boat.class, this.getBoundingBox().inflate(1.5D));
             for (Boat boat : boats) {
                 boat.discard();
@@ -169,7 +151,11 @@ public class CustomBipedEntity extends Monster {
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
-        this.goalSelector.addGoal(2, new EscapeBoatAndBuildUpGoal(this, 1.2D));
+        
+        // ★ 核心替换：装载全新的平地阶梯走搭 AI
+        this.goalSelector.addGoal(2, new WalkBridgeGoal(this, 0.3D)); 
+        
+        // 旧的搭高已被移除，直接接上其他陷阱和战斗AI
         this.goalSelector.addGoal(3, new LavaTrapGoal(this));
         this.goalSelector.addGoal(4, new HostileCobwebTrapGoal(this));
         this.goalSelector.addGoal(5, new AxeBreakShieldGoal(this));
@@ -180,6 +166,7 @@ public class CustomBipedEntity extends Monster {
         this.goalSelector.addGoal(10, new RandomStrollGoal(this, 0.6D));
         this.goalSelector.addGoal(11, new LookAtPlayerGoal(this, Player.class, 8.0F));
         this.goalSelector.addGoal(12, new RandomLookAroundGoal(this));
+        
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
     }
