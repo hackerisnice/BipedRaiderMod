@@ -5,6 +5,7 @@ import com.yourmod.entity.ai.CompanionCombatGoal;
 import com.yourmod.entity.ai.CompanionEatAppleGoal;
 import com.yourmod.entity.ai.CompanionFollowPearlGoal;
 import com.yourmod.entity.ai.CompanionHandleCrystalGoal;
+import com.yourmod.entity.ai.WalkBridgeGoal;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
@@ -65,13 +66,17 @@ public class FriendlyBipedEntity extends TamableAnimal {
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new CompanionFollowPearlGoal(this));
-        this.goalSelector.addGoal(2, new CompanionEatAppleGoal(this));
-        this.goalSelector.addGoal(3, new CompanionHandleCrystalGoal(this));
-        this.goalSelector.addGoal(4, new CompanionCombatGoal(this, 1.5D));
-        this.goalSelector.addGoal(5, new FollowOwnerGoal(this, 1.2D, 5.0F, 2.0F));
-        this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 64.0F, 1.0F));
-        this.goalSelector.addGoal(7, new WaterAvoidingRandomStrollGoal(this, 1.0D));
+        
+        // ★ 赋予 Aiko 平地阶梯走搭的能力！
+        this.goalSelector.addGoal(1, new WalkBridgeGoal(this, 0.35D)); 
+        
+        this.goalSelector.addGoal(2, new CompanionFollowPearlGoal(this));
+        this.goalSelector.addGoal(3, new CompanionEatAppleGoal(this));
+        this.goalSelector.addGoal(4, new CompanionHandleCrystalGoal(this));
+        this.goalSelector.addGoal(5, new CompanionCombatGoal(this, 1.5D));
+        this.goalSelector.addGoal(6, new FollowOwnerGoal(this, 1.2D, 5.0F, 2.0F));
+        this.goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 64.0F, 1.0F));
+        this.goalSelector.addGoal(8, new WaterAvoidingRandomStrollGoal(this, 1.0D));
 
         this.targetSelector.addGoal(1, new OwnerHurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new OwnerHurtTargetGoal(this));
@@ -128,17 +133,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
     public void tick() {
         super.tick();
 
-        // ★ 视觉增强：Aiko 腾空时的风弹拖尾粒子
-        if (this.level().isClientSide && !this.onGround()) {
-            for (int i = 0; i < 2; i++) {
-                this.level().addParticle(net.minecraft.core.particles.ParticleTypes.GUST,
-                        this.getX() + (this.random.nextDouble() - 0.5) * 0.8,
-                        this.getY() + this.random.nextDouble() * 0.5,
-                        this.getZ() + (this.random.nextDouble() - 0.5) * 0.8,
-                        0.0, -0.1, 0.0);
-            }
-        }
-
         LivingEntity owner = this.getOwner();
 
         if (owner != null && !this.level().isClientSide && owner.isAlive()) {
@@ -150,7 +144,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
 
         if (!this.level().isClientSide) {
             
-            // ★ 镜头逻辑重构：Aiko 专用的完美锁定视角
             LivingEntity target = this.getTarget();
             if (target != null && target.isAlive()) {
                 double dx = target.getX() - this.getX();
@@ -166,7 +159,6 @@ public class FriendlyBipedEntity extends TamableAnimal {
                 this.yHeadRot = targetYaw;
                 this.yBodyRot = targetYaw;
             } else if (owner != null) {
-                // 如果没有敌人，平时看风景时把头转向主人
                 this.getLookControl().setLookAt(owner, 30.0F, 30.0F);
             }
 
