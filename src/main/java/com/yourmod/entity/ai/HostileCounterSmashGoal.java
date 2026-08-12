@@ -145,7 +145,7 @@ public class HostileCounterSmashGoal extends Goal {
             if (!mob.onGround() && maxFallDistance == 0f) {
                 // 引爆风弹，给足起飞初速度
                 mob.level().playSound(null, mob.blockPosition(), SoundEvents.WIND_CHARGE_BURST.value(), SoundSource.HOSTILE, 1.0F, 1.0F);
-                if (mob.level() instanceof net.server.level.ServerLevel serverLevel) {
+                if (mob.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
                     serverLevel.sendParticles(ParticleTypes.GUST, mob.getX(), mob.getY(), mob.getZ(), 15, 0.5, 0.2, 0.5, 0.1);
                 }
                 
