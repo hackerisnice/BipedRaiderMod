@@ -38,13 +38,14 @@ public class LavaTrapGoal extends Goal {
         target = mob.getTarget();
         if (target == null || !target.isAlive()) return false;
         
-        // 必须逼近到 4 格以内 (2 * 2 = 4)
-        if (mob.distanceToSqr(target) > 4.0) return false;
+        // ★ 修改：必须逼近到 3.5 格以内 (3.5 * 3.5 = 12.25)
+        // 这样在玩家挥剑前一瞬间，岩浆就能放出来
+        if (mob.distanceToSqr(target) > 12.25) return false; 
         
-        // 确保目标脚下是可以被替换的方块（如空气、草丛），而不是实心方块
         BlockPos targetPos = target.blockPosition();
         return level.getBlockState(targetPos).canBeReplaced();
     }
+
 
     @Override
     public void start() {
