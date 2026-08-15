@@ -43,6 +43,7 @@ public class CustomBipedEntity extends Monster {
 
     public CustomBipedEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
+        this.setPersistenceRequired();
     }
 
     public static AttributeSupplier.Builder createAttributes() {
