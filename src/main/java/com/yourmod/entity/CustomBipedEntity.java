@@ -166,28 +166,22 @@ public class CustomBipedEntity extends Monster {
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new EatEnchantedGoldenAppleGoal(this));
-        
-        // [优先级 2] 受击反打绝杀状态机 (最高优先级打断)
         this.goalSelector.addGoal(2, new HostileCounterSmashGoal(this)); 
-        
-        // ★ [优先级 3-5] 远距离追击三件套，大幅提高优先度！
-        this.goalSelector.addGoal(3, new EnderPearlTeleportGoal(this)); // 远距离先射珍珠
-        this.goalSelector.addGoal(4, new WalkBridgeGoal(this, 0.3D));   // 中距离遇坑走搭
-        this.goalSelector.addGoal(5, new BreakBlockToReachTargetGoal(this)); // 遇墙挖洞
-        
-        // [优先级 6-9] 近战防逃课与陷阱
+        this.goalSelector.addGoal(3, new EnderPearlTeleportGoal(this));
+        this.goalSelector.addGoal(4, new WalkBridgeGoal(this, 0.3D));
+        this.goalSelector.addGoal(5, new BreakBlockToReachTargetGoal(this));
         this.goalSelector.addGoal(6, new LavaTrapGoal(this));
-        this.goalSelector.addGoal(7, new HostileCobwebTrapGoal(this));
-        this.goalSelector.addGoal(8, new AxeBreakShieldGoal(this));
-        this.goalSelector.addGoal(9, new ThrowHarmingPotionAtFeetGoal(this));
         
-        // [优先级 10] 核心 PVP 走位与平砍
-        this.goalSelector.addGoal(10, new HostileAdvancedCombatGoal(this, 1.5D));
+        // ★ 新增：渔竿控速与破疾跑连击 (优先级 7)
+        this.goalSelector.addGoal(7, new HostileFishingRodGoal(this));
         
-        // [优先级 11+] 常规游荡
-        this.goalSelector.addGoal(11, new RandomStrollGoal(this, 0.6D));
-        this.goalSelector.addGoal(12, new LookAtPlayerGoal(this, Player.class, 8.0F));
-        this.goalSelector.addGoal(13, new RandomLookAroundGoal(this));
+        this.goalSelector.addGoal(8, new HostileCobwebTrapGoal(this));
+        this.goalSelector.addGoal(9, new AxeBreakShieldGoal(this));
+        this.goalSelector.addGoal(10, new ThrowHarmingPotionAtFeetGoal(this));
+        this.goalSelector.addGoal(11, new HostileAdvancedCombatGoal(this, 1.5D));
+        this.goalSelector.addGoal(12, new RandomStrollGoal(this, 0.6D));
+        this.goalSelector.addGoal(13, new LookAtPlayerGoal(this, Player.class, 8.0F));
+        this.goalSelector.addGoal(14, new RandomLookAroundGoal(this));
         
         this.targetSelector.addGoal(1, new HurtByTargetGoal(this));
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
