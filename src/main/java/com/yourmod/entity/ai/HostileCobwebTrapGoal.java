@@ -90,7 +90,7 @@ public class HostileCobwebTrapGoal extends Goal {
         activeTnt = new PrimedTnt(level, tntPos.getX() + 0.5, tntPos.getY(), tntPos.getZ() + 0.5, mob);
         activeTnt.setFuse(45);
         level.addFreshEntity(activeTnt);
-        level.playSound(null, tntPos, SoundEvents.TNT_PRIME, SoundSource.HOSTILE, 1.0F, 1.0F);
+        level.playSound(null, tntPos, SoundEvents.TNT_PRIMED, SoundSource.HOSTILE, 1.0F, 1.0F);
 
         mob.restoreMainHandItem();
 
