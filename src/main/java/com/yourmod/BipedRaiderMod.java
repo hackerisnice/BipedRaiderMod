@@ -6,7 +6,6 @@ import com.yourmod.entity.FriendlyBipedEntity;
 import com.yourmod.registry.ModEntities;
 import com.yourmod.util.IEntityDataSaver;
 import net.fabricmc.api.ModInitializer;
-// ★ 新增：Fabric 生物群系修改 API
 import net.fabricmc.fabric.api.biome.v1.BiomeModifications;
 import net.fabricmc.fabric.api.biome.v1.BiomeSelectors;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
@@ -23,6 +22,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LightningBolt;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.SpawnPlacementTypes;
 import net.minecraft.world.entity.SpawnPlacements;
 import net.minecraft.world.entity.monster.Monster;
@@ -59,15 +59,30 @@ public class BipedRaiderMod implements ModInitializer {
         SpawnPlacements.register(ModEntities.CUSTOM_BIPED, SpawnPlacementTypes.ON_GROUND, Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Monster::checkMonsterSpawnRules);
         
         // ==========================================
-        // ★ 核心修复：将怪物加入主世界的自然刷新池
+        // ★ 多维度自然刷新配置
         // ==========================================
+        // 1. 主世界：稀有精英怪 (权重 15)
         BiomeModifications.addSpawn(
-                BiomeSelectors.foundInOverworld(), // 刷新范围：整个主世界
-                net.minecraft.world.entity.MobCategory.MONSTER, // 怪物分类（占敌对生物上限）
-                ModEntities.CUSTOM_BIPED, // 我们的实体
-                30, // 权重：僵尸是100，小白是100，女巫是5。30是一个属于“精英怪”的适中概率
-                1,  // 最小集群数量：每次最少刷 1 只
-                1   // 最大集群数量：每次最多刷 1 只 (防止几只 Boss 一起上来把你秒了)
+                BiomeSelectors.foundInOverworld(),
+                MobCategory.MONSTER,
+                ModEntities.CUSTOM_BIPED,
+                15, 1, 1
+        );
+
+        // 2. 下界：高危遭遇怪 (权重 85，每次 1~2 只)
+        BiomeModifications.addSpawn(
+                BiomeSelectors.foundInTheNether(),
+                MobCategory.MONSTER,
+                ModEntities.CUSTOM_BIPED,
+                85, 1, 2
+        );
+
+        // 3. 末地：主场压迫怪 (权重 100，每次 1~2 只)
+        BiomeModifications.addSpawn(
+                BiomeSelectors.foundInTheEnd(),
+                MobCategory.MONSTER,
+                ModEntities.CUSTOM_BIPED,
+                100, 1, 2
         );
         // ==========================================
 
